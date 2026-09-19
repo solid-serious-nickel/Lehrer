@@ -140,6 +140,8 @@
     <input type="text" id="modelMainInput" placeholder="claude-sonnet-5">
     <div class="field-label">Modell für Heft-Einlesen (schnell/günstig)</div>
     <input type="text" id="modelFastInput" placeholder="claude-haiku-4-5-20251001">
+    <div class="field-label">Sprechgeschwindigkeit (0,5 = langsam … 1,0 = normal)</div>
+    <input type="text" id="rateInput" placeholder="0.85">
     <div class="hint">Verbrauch & Kosten siehst du in deiner Anthropic-Konsole (console.anthropic.com). Ändert sich mal ein Modellname, trag ihn hier einfach neu ein.</div>
     <button class="icon-btn" id="saveSettingsBtn" style="width:100%; margin-top:10px;">Speichern</button>
     <div class="close-row"><button class="close-link" id="closeSettingsBtn">Schließen</button></div>
@@ -221,13 +223,15 @@
     return {
       apiKey: localStorage.getItem('lehrer_apiKey') || '',
       modelMain: localStorage.getItem('lehrer_modelMain') || 'claude-sonnet-5',
-      modelFast: localStorage.getItem('lehrer_modelFast') || 'claude-haiku-4-5-20251001'
+      modelFast: localStorage.getItem('lehrer_modelFast') || 'claude-haiku-4-5-20251001',
+      rate: parseFloat(localStorage.getItem('lehrer_rate')) || 0.85
     };
   }
   function saveSettings(s) {
     localStorage.setItem('lehrer_apiKey', s.apiKey);
     localStorage.setItem('lehrer_modelMain', s.modelMain);
     localStorage.setItem('lehrer_modelFast', s.modelFast);
+    localStorage.setItem('lehrer_rate', s.rate);
   }
 
   // ---------------- Anthropic direct call ----------------
@@ -328,7 +332,7 @@
       u.lang = lang;
       const v = pickVoiceFor(lang);
       if (v) u.voice = v;
-      u.rate = 0.98;
+      u.rate = getSettings().rate;
       u.onend = () => { if (myToken === currentSpeakToken) { i++; next(); } };
       u.onerror = () => { if (myToken === currentSpeakToken) { i++; next(); } };
       window.speechSynthesis.speak(u);
@@ -418,7 +422,7 @@
       $('libStatus').textContent = 'Sortiere Inhalt (KI): Seite ' + (i + 1) + ' / ' + rawPages.length + ' …';
       const pageText = rawPages[i];
       if (!pageText || pageText.length < 5) { pages.push({ blocks: [] }); continue; }
-      const prompt = 'Das ist der reine, exakt extrahierte Text von Seite ' + (i + 1) + ' eines Lern-Studienhefts (Fach: ' + subject + '). WICHTIG: Übernimm den Inhalt VOLLSTÄNDIG und WORTGETREU, fasse NICHT zusammen und lasse NICHTS weg (auch keine Aufgabennummern, Vokabeln, Formeln). Deine einzige Aufgabe ist es, den Text sinnvoll in Blöcke zu gliedern und zu klassifizieren.\n\nText:\n"""' + pageText + '"""\n\nGib NUR ein JSON-Objekt zurück: {"blocks": [...]}. Jeder Block: {"type": "pflicht"|"verstehen"|"kontext", "kind": "text"|"aufgabe", "text": "...", "loesung": "..."}. "pflicht" = Kernaussage/Merksatz/Definition/Vokabel/Aufgabenstellung, "verstehen" = wichtig fürs Verständnis, "kontext" = Hintergrund/Beispiel. "loesung" nur bei kind="aufgabe" befüllen, wenn auf der Seite erkennbar, sonst weglassen. Reiner Fließtext-Erklärtext darf in 1-2 Blöcken zusammengefasst werden, aber OHNE Informationsverlust. Antworte NUR mit dem JSON-Objekt.';
+      const prompt = 'Das ist der reine, exakt extrahierte Text von Seite ' + (i + 1) + ' eines Lern-Studienhefts (Fach: ' + subject + '). WICHTIG: Übernimm den Inhalt VOLLSTÄNDIG und WORTGETREU, fasse NICHT zusammen und lasse NICHTS weg (auch keine Aufgabennummern, Vokabeln, Formeln). Deine einzige Aufgabe ist es, den Text sinnvoll in Blöcke zu gliedern und zu klassifizieren. WICHTIG für Vokabeltabellen und Grammatik-/Regelblöcke: eine zusammenhängende Vokabelliste/-tabelle gehört komplett in EINEN einzigen Block (nicht auf mehrere Blöcke aufteilen), ebenso ein zusammenhängender Grammatik-/Regelabschnitt.\n\nText:\n"""' + pageText + '"""\n\nGib NUR ein JSON-Objekt zurück: {"blocks": [...]}. Jeder Block: {"type": "pflicht"|"verstehen"|"kontext", "kind": "text"|"aufgabe", "text": "...", "loesung": "..."}. "pflicht" = Kernaussage/Merksatz/Definition/Vokabel/Aufgabenstellung, "verstehen" = wichtig fürs Verständnis, "kontext" = Hintergrund/Beispiel. "loesung" nur bei kind="aufgabe" befüllen, wenn auf der Seite erkennbar, sonst weglassen. Reiner Fließtext-Erklärtext darf in 1-2 Blöcken zusammengefasst werden, aber OHNE Informationsverlust. Antworte NUR mit dem JSON-Objekt.';
       try {
         const raw = await callClaude(prompt, { model: getSettings().modelFast, maxTokens: 2000 });
         const parsed = extractJson(raw);
@@ -476,9 +480,28 @@
       const speakBtn = document.createElement('button');
       speakBtn.className = 'icon-btn secondary';
       speakBtn.style.marginTop = '8px';
+      speakBtn.style.marginRight = '8px';
       speakBtn.textContent = '🔊 Vorlesen';
       speakBtn.onclick = () => speakSequential(splitIntoSegments(block.text));
       card.appendChild(speakBtn);
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'icon-btn secondary';
+      copyBtn.style.marginTop = '8px';
+      copyBtn.textContent = '📋 Kopieren';
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(block.text);
+          copyBtn.textContent = '✅ Kopiert';
+        } catch (e) {
+          const ta = document.createElement('textarea');
+          ta.value = block.text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); copyBtn.textContent = '✅ Kopiert'; } catch (e2) { copyBtn.textContent = '❌ Fehler'; }
+          document.body.removeChild(ta);
+        }
+        setTimeout(() => { copyBtn.textContent = '📋 Kopieren'; }, 1500);
+      };
+      card.appendChild(copyBtn);
 
       if (block.kind === 'aufgabe') {
         const box = document.createElement('div');
@@ -513,7 +536,7 @@
             let prompt = 'Du bist ein geduldiger, ruhiger KI-Lehrer, Fach ' + (currentHeft.subject || '') + '.\nAufgabe: "' + block.text + '"\nMusterlösung (NICHT direkt verraten): "' + (block.loesung || '') + '"\n';
             if (attachedPhoto64) { prompt += 'Der Lernende hat seine (evtl. handschriftliche) Antwort als Foto eingereicht — lies sie sorgfältig.\n'; if (val) prompt += 'Zusätzlicher Kommentar: "' + val + '"\n'; }
             else { prompt += 'Antwort: "' + val + '"\n'; }
-            prompt += '\nVersuch ' + attemptCounts[key] + '. Bewerte wohlwollend, ohne Druck. Versuch 1: nur sanfter Hinweis, keine Lösung. Versuch 2: deutlicherer Hinweis. Ab Versuch 3: Lösung mit kurzer Erklärung zeigen. Antworte auf Deutsch, max. 3 Sätze.';
+            prompt += '\nBewerte freundlich, ohne Druck, aber SUBSTANZIELL — kein "schau nochmal drüber" ohne Inhalt. Struktur: 1) Kurz sagen, was schon richtig ist (falls etwas). 2) Konkret benennen, was falsch ist. 3) Die KORRIGIERTE Fassung der Antwort/des Satzes explizit hinschreiben. 4) In 1-2 Sätzen erklären, WARUM (welche Regel/welcher Fehler). Der Lernende soll aus der Antwort direkt etwas lernen, nicht raten müssen. Antworte auf Deutsch, kompakt (max. 5 Sätze).';
             const res = await callClaude(prompt, { images: attachedPhoto64 || undefined });
             fb.textContent = res;
             speakSequential(splitIntoSegments(res));
@@ -634,11 +657,12 @@
     $('apiKeyInput').value = s.apiKey;
     $('modelMainInput').value = s.modelMain;
     $('modelFastInput').value = s.modelFast;
+    $('rateInput').value = s.rate;
 
     $('settingsBtn').onclick = () => $('settingsSheet').style.display = 'flex';
     $('closeSettingsBtn').onclick = () => $('settingsSheet').style.display = 'none';
     $('saveSettingsBtn').onclick = () => {
-      saveSettings({ apiKey: $('apiKeyInput').value.trim(), modelMain: $('modelMainInput').value.trim() || 'claude-sonnet-5', modelFast: $('modelFastInput').value.trim() || 'claude-haiku-4-5-20251001' });
+      saveSettings({ apiKey: $('apiKeyInput').value.trim(), modelMain: $('modelMainInput').value.trim() || 'claude-sonnet-5', modelFast: $('modelFastInput').value.trim() || 'claude-haiku-4-5-20251001', rate: parseFloat($('rateInput').value) || 0.85 });
       $('settingsSheet').style.display = 'none';
     };
     $('titleHome').onclick = renderLibrary;
