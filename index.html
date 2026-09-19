@@ -109,6 +109,11 @@
 
   <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="progress-label" id="progressLabel">Seite – / –</div>
+  <div style="display:flex; gap:8px; align-items:center; margin:-10px 0 16px 0;">
+    <input type="number" id="pageJumpInput" min="1" style="width:70px; text-align:center; padding:8px 6px;" placeholder="Seite">
+    <button class="icon-btn secondary" id="pageJumpBtn">Los</button>
+    <span class="badge-quiet" style="margin:0;">→ direkt springen</span>
+  </div>
 
   <div class="mode-row">
     <button class="mode-btn active" id="modeFull">Volle Session</button>
@@ -453,6 +458,8 @@
     $('nextBtn').disabled = currentPage >= total;
     $('progressFill').style.width = Math.round((currentPage / total) * 100) + '%';
     $('progressLabel').textContent = 'Seite ' + currentPage + ' / ' + total;
+    $('pageJumpInput').max = total;
+    $('pageJumpInput').placeholder = 'z.B. ' + total;
 
     const area = $('pageArea');
     area.innerHTML = '';
@@ -559,6 +566,16 @@
     currentPage = next;
     await saveHeftState();
     renderPage();
+  }
+
+  async function jumpToPage(target) {
+    const total = currentHeft.pages.length;
+    const n = parseInt(target, 10);
+    if (!n || n < 1 || n > total) { $('pageJumpInput').value = ''; $('pageJumpInput').placeholder = '1–' + total + '?'; return; }
+    currentPage = n;
+    await saveHeftState();
+    renderPage();
+    $('pageJumpInput').value = '';
   }
 
   async function runQuickCheck() {
@@ -676,6 +693,8 @@
 
     $('prevBtn').onclick = () => goPage(-1);
     $('nextBtn').onclick = () => goPage(1);
+    $('pageJumpBtn').onclick = () => jumpToPage($('pageJumpInput').value);
+    $('pageJumpInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') jumpToPage($('pageJumpInput').value); });
     $('modeFull').onclick = () => { $('modeFull').classList.add('active'); $('modeQuick').classList.remove('active'); $('modeEsa').classList.remove('active'); $('quickArea').style.display='none'; $('esaArea').style.display='none'; $('pageArea').style.display='block'; $('navRow').style.display='flex'; };
     $('modeQuick').onclick = () => { $('modeQuick').classList.add('active'); $('modeFull').classList.remove('active'); $('modeEsa').classList.remove('active'); runQuickCheck(); };
     $('modeEsa').onclick = () => { $('modeEsa').classList.add('active'); $('modeFull').classList.remove('active'); $('modeQuick').classList.remove('active'); renderEsaCheck(); };
