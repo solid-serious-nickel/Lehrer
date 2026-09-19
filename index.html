@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dein Lehrer</title>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f5f1; --fg: #2a2622; --card-bg: #ffffff; --card-border: #e6e1d8;
+    --muted: #8a8478; --accent: #3f6b52; --accent-fg: #ffffff;
+    --pflicht: #b8492f; --pflicht-bg: #fbeae5;
+    --verstehen: #a9791a; --verstehen-bg: #fbf1dc;
+    --kontext: #6b7280; --kontext-bg: #eef0f2;
+    --shadow: 0 2px 10px rgba(0,0,0,0.06);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1a17; --fg: #ece8e1; --card-bg: #26241f; --card-border: #3a3630;
+      --muted: #9b9587; --accent: #6fa585; --accent-fg: #10231a;
+      --pflicht: #e08767; --pflicht-bg: #3a241d;
+      --verstehen: #dcb659; --verstehen-bg: #3a3018;
+      --kontext: #a3a9b3; --kontext-bg: #2b2e33;
+      --shadow: 0 2px 10px rgba(0,0,0,0.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg); min-height: 100%;
+    padding: env(safe-area-inset-top,0px) 14px calc(100px + env(safe-area-inset-bottom,0px)) 14px;
+    max-width: 640px; margin-inline: auto;
+  }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-top:14px; margin-bottom:14px; }
+  .topbar h1 { font-size:17px; margin:0; font-weight:700; cursor:pointer; }
+  .icon-link { background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; padding:4px; }
+  .day-chip { background:var(--card-bg); border:1px solid var(--card-border); border-radius:999px; padding:6px 12px; font-size:13px; color:var(--muted); white-space:nowrap; }
+  .card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:16px; padding:14px 16px; margin-bottom:12px; box-shadow:var(--shadow); }
+  .block-tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; padding:3px 9px; border-radius:999px; margin-bottom:8px; }
+  .tag-pflicht { color:var(--pflicht); background:var(--pflicht-bg); }
+  .tag-verstehen { color:var(--verstehen); background:var(--verstehen-bg); }
+  .tag-kontext { color:var(--kontext); background:var(--kontext-bg); }
+  .block-text { font-size:15.5px; line-height:1.55; white-space:pre-wrap; }
+  .aufgabe-box { margin-top:10px; padding-top:10px; border-top:1px dashed var(--card-border); }
+  .answer-row { display:flex; gap:8px; margin-top:10px; flex-wrap: wrap; }
+  .answer-row input[type=text] { flex:1; min-width:120px; border:1px solid var(--card-border); border-radius:10px; padding:10px 12px; font-size:15px; background:var(--bg); color:var(--fg); }
+  .icon-btn { border:none; border-radius:10px; background:var(--accent); color:var(--accent-fg); padding:10px 14px; font-size:14px; font-weight:600; cursor:pointer; }
+  .icon-btn.secondary { background:var(--card-border); color:var(--fg); }
+  .icon-btn.danger { background: var(--pflicht); color: #fff; }
+  .icon-btn:disabled { opacity:.5; }
+  .feedback-box { margin-top:10px; font-size:14px; line-height:1.5; padding:10px 12px; background:var(--kontext-bg); border-radius:10px; white-space: pre-wrap; }
+  .nav-row { display:flex; justify-content:space-between; gap:10px; margin-top:4px; margin-bottom:20px; }
+  .nav-btn { flex:1; padding:12px; border-radius:12px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--fg); font-size:14px; font-weight:600; cursor:pointer; }
+  .nav-btn:disabled { opacity:.4; }
+  .fab { position:fixed; bottom:calc(22px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); background:var(--accent); color:var(--accent-fg); border:none; border-radius:999px; padding:14px 22px; font-size:15px; font-weight:700; box-shadow:var(--shadow); display:flex; align-items:center; gap:8px; cursor:pointer; max-width:calc(100% - 28px); z-index:30; }
+  .stop-fab { position:fixed; bottom:calc(22px + env(safe-area-inset-bottom,0px)); right:16px; background:var(--pflicht); color:#fff; border:none; border-radius:999px; width:52px; height:52px; font-size:20px; box-shadow:var(--shadow); cursor:pointer; display:none; align-items:center; justify-content:center; z-index:40; }
+  .sheet-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:flex-end; justify-content:center; z-index:50; }
+  .sheet { background:var(--card-bg); width:100%; max-width:640px; max-height:88vh; overflow-y:auto; border-radius:20px 20px 0 0; padding:18px 18px calc(26px + env(safe-area-inset-bottom,0px)) 18px; box-shadow:var(--shadow); }
+  .sheet h2 { margin:0 0 10px 0; font-size:16px; }
+  .hint { font-size:12.5px; color:var(--muted); margin-bottom:12px; }
+  .mic-btn { width:100%; padding:16px; border-radius:14px; border:none; background:var(--pflicht-bg); color:var(--pflicht); font-size:15px; font-weight:700; margin-bottom:10px; cursor:pointer; }
+  .mic-btn.listening { background:var(--pflicht); color:#fff; }
+  .close-row { text-align:right; margin-top:8px; }
+  .close-link { color:var(--muted); font-size:13px; background:none; border:none; cursor:pointer; }
+  .thinking { color:var(--muted); font-style:italic; }
+  .badge-quiet { font-size:12px; color:var(--muted); margin:6px 0; }
+  .heft-title { font-size:13px; color:var(--muted); margin-bottom:2px; }
+  .heft-name { font-size:17px; font-weight:700; margin-bottom:14px; }
+  .progress-bar-bg { height:6px; background:var(--card-border); border-radius:999px; overflow:hidden; }
+  .progress-bar-fill { height:100%; background:var(--accent); border-radius:999px; transition:width .3s ease; }
+  .progress-label { font-size:12px; color:var(--muted); margin-top:5px; margin-bottom:16px; }
+  .mode-row { display:flex; gap:10px; margin-bottom:18px; }
+  .mode-btn { flex:1; padding:12px 8px; border-radius:14px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--fg); font-size:13px; font-weight:600; text-align:center; cursor:pointer; }
+  .mode-btn.active { border-color:var(--accent); color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .lib-item { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border:1px solid var(--card-border); border-radius:14px; margin-bottom:10px; background:var(--card-bg); cursor:pointer; }
+  .lib-item .meta { font-size:12px; color:var(--muted); }
+  .lib-item .del { background:none; border:none; color:var(--muted); font-size:18px; padding:4px 8px; cursor:pointer; }
+  .field-label { font-size:12.5px; color:var(--muted); margin: 10px 0 4px 0; }
+  input[type=text], input[type=password] { width:100%; border:1px solid var(--card-border); border-radius:10px; padding:10px 12px; font-size:15px; background:var(--bg); color:var(--fg); }
+  .screen { display:none; }
+  .screen.active { display:block; }
+</style>
+</head>
+<body>
+
+<!-- ============ TOPBAR ============ -->
+<div class="topbar">
+  <h1 id="titleHome">🎓 Dein Lehrer</h1>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <div class="day-chip" id="dayChip" style="display:none;">Tag –</div>
+    <button class="icon-link" id="settingsBtn" title="Einstellungen">⚙️</button>
+  </div>
+</div>
+
+<!-- ============ SCREEN: LIBRARY ============ -->
+<div class="screen active" id="screenLibrary">
+  <div class="badge-quiet" id="libStatus"></div>
+  <button class="icon-btn" id="uploadPdfBtn" style="width:100%; margin-bottom:16px;">📄 Studienheft-PDF hochladen</button>
+  <input type="file" id="pdfFileInput" accept="application/pdf" style="display:none;">
+  <div id="libraryList"></div>
+</div>
+
+<!-- ============ SCREEN: READER ============ -->
+<div class="screen" id="screenReader">
+  <button class="close-link" id="backToLibraryBtn" style="margin-bottom:10px;">← Zur Bibliothek</button>
+  <div class="heft-title">Aktuelles Heft</div>
+  <div class="heft-name" id="heftName">–</div>
+
+  <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="progress-label" id="progressLabel">Seite – / –</div>
+
+  <div class="mode-row">
+    <button class="mode-btn active" id="modeFull">Volle Session</button>
+    <button class="mode-btn" id="modeQuick">3-Minuten-Check</button>
+    <button class="mode-btn" id="modeEsa">ESA-Check</button>
+  </div>
+
+  <div id="quickArea" style="display:none;"></div>
+  <div id="esaArea" style="display:none;"></div>
+  <div id="pageArea"></div>
+
+  <div class="nav-row" id="navRow" style="display:none;">
+    <button class="nav-btn" id="prevBtn">← Zurück</button>
+    <button class="nav-btn" id="nextBtn">Weiter →</button>
+  </div>
+</div>
+
+<button class="fab" id="askFab" style="display:none;">🎙️ Frag deinen Lehrer</button>
+<button class="stop-fab" id="stopSpeakBtn" title="Vorlesen stoppen">⏹</button>
+
+<!-- ============ SHEET: SETTINGS ============ -->
+<div class="sheet-backdrop" id="settingsSheet" style="display:none;">
+  <div class="sheet">
+    <h2>Einstellungen</h2>
+    <div class="hint">Dein Anthropic-API-Key bleibt nur in DEINEM Browser (localStorage) — er wird bei jeder Anfrage direkt an api.anthropic.com geschickt, läuft nie über einen Server von mir. Key erstellen: console.anthropic.com → API Keys.</div>
+    <div class="field-label">Anthropic API-Key</div>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+    <div class="field-label">Modell für Unterricht/Bewertung (hochwertig)</div>
+    <input type="text" id="modelMainInput" placeholder="claude-sonnet-5">
+    <div class="field-label">Modell für Heft-Einlesen (schnell/günstig)</div>
+    <input type="text" id="modelFastInput" placeholder="claude-haiku-4-5-20251001">
+    <div class="hint">Verbrauch & Kosten siehst du in deiner Anthropic-Konsole (console.anthropic.com). Ändert sich mal ein Modellname, trag ihn hier einfach neu ein.</div>
+    <button class="icon-btn" id="saveSettingsBtn" style="width:100%; margin-top:10px;">Speichern</button>
+    <div class="close-row"><button class="close-link" id="closeSettingsBtn">Schließen</button></div>
+  </div>
+</div>
+
+<!-- ============ SHEET: ASK TEACHER ============ -->
+<div class="sheet-backdrop" id="askSheet" style="display:none;">
+  <div class="sheet">
+    <h2>Frag deinen Lehrer</h2>
+    <div class="hint" id="askHint">Antippen und reden – oder das Mikro auf deiner Tastatur benutzen.</div>
+    <button class="mic-btn" id="micBtn">🎙️ Antippen &amp; sprechen</button>
+    <div class="answer-row">
+      <input type="text" id="fallbackInput" placeholder="Frage… (Mikro-Taste der Tastatur nutzen)">
+      <button class="icon-btn" id="sendBtn">Fragen</button>
+    </div>
+    <div id="answerArea"></div>
+    <div class="close-row"><button class="close-link" id="closeAskBtn">Schließen</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+  const $ = id => document.getElementById(id);
+
+  // ---------------- IndexedDB ----------------
+  let dbp = null;
+  function openDB() {
+    if (dbp) return dbp;
+    dbp = new Promise((resolve, reject) => {
+      const req = indexedDB.open('lehrer-db', 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore('hefte', { keyPath: 'id' }); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbp;
+  }
+  async function idbGet(id) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('hefte', 'readonly').objectStore('hefte').get(id);
+      tx.onsuccess = () => res(tx.result || null);
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+  async function idbPut(obj) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('hefte', 'readwrite').objectStore('hefte').put(obj);
+      tx.onsuccess = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+  async function idbAll() {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const items = [];
+      const req = db.transaction('hefte', 'readonly').objectStore('hefte').openCursor();
+      req.onsuccess = (e) => {
+        const cur = e.target.result;
+        if (cur) { items.push(cur.value); cur.continue(); } else { res(items); }
+      };
+      req.onerror = () => rej(req.error);
+    });
+  }
+  async function idbDelete(id) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('hefte', 'readwrite').objectStore('hefte').delete(id);
+      tx.onsuccess = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+
+  // ---------------- Settings ----------------
+  function getSettings() {
+    return {
+      apiKey: localStorage.getItem('lehrer_apiKey') || '',
+      modelMain: localStorage.getItem('lehrer_modelMain') || 'claude-sonnet-5',
+      modelFast: localStorage.getItem('lehrer_modelFast') || 'claude-haiku-4-5-20251001'
+    };
+  }
+  function saveSettings(s) {
+    localStorage.setItem('lehrer_apiKey', s.apiKey);
+    localStorage.setItem('lehrer_modelMain', s.modelMain);
+    localStorage.setItem('lehrer_modelFast', s.modelFast);
+  }
+
+  // ---------------- Anthropic direct call ----------------
+  async function callClaude(promptText, { model, images, maxTokens } = {}) {
+    const s = getSettings();
+    if (!s.apiKey) { const e = new Error('no_api_key'); e.code = 'no_api_key'; throw e; }
+    const content = [];
+    if (images) {
+      const arr = Array.isArray(images) ? images : [images];
+      for (const b64 of arr) {
+        content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } });
+      }
+    }
+    content.push({ type: 'text', text: promptText });
+    let res;
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': s.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: model || s.modelMain,
+          max_tokens: maxTokens || 1200,
+          messages: [{ role: 'user', content }]
+        })
+      });
+    } catch (netErr) {
+      const e = new Error('network'); e.code = 'network'; throw e;
+    }
+    if (!res.ok) {
+      let msg = '';
+      try { msg = (await res.json()).error?.message || ''; } catch (e2) {}
+      const e = new Error('api_' + res.status); e.code = 'api_' + res.status; e.detail = msg; throw e;
+    }
+    const data = await res.json();
+    return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+  }
+  function extractJson(text) {
+    const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const start = cleaned.indexOf('{') === -1 ? cleaned.indexOf('[') : Math.min(...[cleaned.indexOf('{'), cleaned.indexOf('[')].filter(i => i >= 0));
+    try { return JSON.parse(cleaned); } catch (e) {
+      // Versuche, nur den JSON-Teil herauszuschneiden
+      const m = cleaned.match(/[\{\[][\s\S]*[\}\]]/);
+      if (m) { try { return JSON.parse(m[0]); } catch (e2) {} }
+      throw e;
+    }
+  }
+  function feedbackForError(e) {
+    if (!e || !e.code) return 'Da ist etwas schiefgelaufen. Versuch es gleich noch mal.';
+    if (e.code === 'no_api_key') return 'Kein API-Key hinterlegt. Trag ihn unter ⚙️ Einstellungen ein.';
+    if (e.code === 'network') return 'Keine Verbindung zur API. Prüfe deine Internetverbindung.';
+    if (e.code === 'api_401') return 'API-Key wurde abgelehnt (401). Prüfe ihn unter ⚙️ Einstellungen.';
+    if (e.code === 'api_429') return 'Gerade zu viele Anfragen (Rate-Limit). Kurz warten und nochmal.';
+    return 'Fehler: ' + e.code + (e.detail ? ' – ' + e.detail : '');
+  }
+
+  // ---------------- TTS ----------------
+  let cachedVoices = [];
+  let currentSpeakToken = 0;
+  function loadVoices() {
+    return new Promise((resolve) => {
+      if (!('speechSynthesis' in window)) { resolve([]); return; }
+      let v = window.speechSynthesis.getVoices();
+      if (v && v.length) { resolve(v); return; }
+      let resolved = false;
+      window.speechSynthesis.onvoiceschanged = () => { if (!resolved) { resolved = true; resolve(window.speechSynthesis.getVoices()); } };
+      setTimeout(() => { if (!resolved) { resolved = true; resolve(window.speechSynthesis.getVoices()); } }, 1500);
+    });
+  }
+  function pickVoiceFor(lang) {
+    if (!cachedVoices.length) return null;
+    const exact = cachedVoices.find(v => v.lang && v.lang.toLowerCase() === lang.toLowerCase());
+    if (exact) return exact;
+    const prefix = lang.split('-')[0];
+    return cachedVoices.find(v => v.lang && v.lang.toLowerCase().startsWith(prefix)) || null;
+  }
+  function pickVoiceLang(text) {
+    const cyr = (text.match(/[\u0400-\u04FF]/g) || []).length;
+    const lat = (text.match(/[A-Za-zÄÖÜäöüß]/g) || []).length;
+    return cyr > lat ? 'ru-RU' : 'de-DE';
+  }
+  function splitIntoSegments(text) { return text.split(/\n+/).map(s => s.trim()).filter(Boolean); }
+  function speakSequential(segments) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const myToken = ++currentSpeakToken;
+    let i = 0;
+    function next() {
+      if (myToken !== currentSpeakToken) return;
+      if (i >= segments.length) return;
+      const seg = segments[i];
+      const lang = pickVoiceLang(seg);
+      const u = new SpeechSynthesisUtterance(seg);
+      u.lang = lang;
+      const v = pickVoiceFor(lang);
+      if (v) u.voice = v;
+      u.rate = 0.98;
+      u.onend = () => { if (myToken === currentSpeakToken) { i++; next(); } };
+      u.onerror = () => { if (myToken === currentSpeakToken) { i++; next(); } };
+      window.speechSynthesis.speak(u);
+    }
+    next();
+  }
+  function stopSpeaking() { currentSpeakToken++; if ('speechSynthesis' in window) window.speechSynthesis.cancel(); }
+
+  // ---------------- State ----------------
+  let currentHeft = null; // volles Heft-Objekt aus IndexedDB
+  let currentPage = 1;
+  let attemptCounts = {};
+  let recog = null;
+
+  // ---------------- Screens ----------------
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $(id).classList.add('active');
+    $('askFab').style.display = (id === 'screenReader') ? 'flex' : 'none';
+  }
+
+  // ---------------- Library ----------------
+  async function renderLibrary() {
+    showScreen('screenLibrary');
+    $('dayChip').style.display = 'none';
+    const list = $('libraryList');
+    list.innerHTML = '<div class="thinking">Lade Bibliothek…</div>';
+    const items = await idbAll();
+    if (!items.length) { list.innerHTML = '<div class="badge-quiet">Noch kein Heft hochgeladen.</div>'; return; }
+    items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    list.innerHTML = '';
+    items.forEach(h => {
+      const row = document.createElement('div');
+      row.className = 'lib-item';
+      const left = document.createElement('div');
+      left.innerHTML = '<div style="font-weight:600;">' + (h.title || h.id) + '</div><div class="meta">' + (h.subject || '') + ' · ' + h.pages.length + ' Seiten · Tag ' + (h.dayCounter || 1) + '</div>';
+      left.onclick = () => openHeft(h.id);
+      const del = document.createElement('button');
+      del.className = 'del'; del.textContent = '🗑️';
+      del.onclick = async (ev) => { ev.stopPropagation(); if (confirm('„' + h.title + '“ wirklich löschen?')) { await idbDelete(h.id); renderLibrary(); } };
+      row.appendChild(left); row.appendChild(del);
+      list.appendChild(row);
+    });
+  }
+
+  async function openHeft(id) {
+    currentHeft = await idbGet(id);
+    if (!currentHeft) return;
+    currentPage = currentHeft.currentPage || 1;
+    attemptCounts = {};
+    showScreen('screenReader');
+    $('dayChip').style.display = 'inline-block';
+    $('dayChip').textContent = 'Tag ' + (currentHeft.dayCounter || 1);
+    $('heftName').textContent = (currentHeft.subject ? currentHeft.subject + ' · ' : '') + currentHeft.title;
+    $('modeFull').classList.add('active'); $('modeQuick').classList.remove('active'); $('modeEsa').classList.remove('active');
+    $('quickArea').style.display = 'none'; $('esaArea').style.display = 'none'; $('pageArea').style.display = 'block';
+    renderPage();
+  }
+
+  async function saveHeftState() {
+    if (!currentHeft) return;
+    currentHeft.currentPage = currentPage;
+    currentHeft.updatedAt = Date.now();
+    await idbPut(currentHeft);
+  }
+
+  // ---------------- PDF Import ----------------
+  async function importPdf(file) {
+    const subject = prompt('Fach? (z. B. Russisch, Mathe)', '') || 'Unbekannt';
+    const title = prompt('Titel des Hefts?', file.name.replace(/\.pdf$/i, '')) || file.name;
+    $('libStatus').textContent = 'Lese PDF …';
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const numPages = pdf.numPages;
+    const rawPages = [];
+    for (let i = 1; i <= numPages; i++) {
+      $('libStatus').textContent = 'Extrahiere Text: Seite ' + i + ' / ' + numPages + ' …';
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const text = content.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
+      rawPages.push(text);
+    }
+    const heftId = 'heft-' + Date.now().toString(36);
+    const pages = [];
+    let failed = 0;
+    for (let i = 0; i < rawPages.length; i++) {
+      $('libStatus').textContent = 'Sortiere Inhalt (KI): Seite ' + (i + 1) + ' / ' + rawPages.length + ' …';
+      const pageText = rawPages[i];
+      if (!pageText || pageText.length < 5) { pages.push({ blocks: [] }); continue; }
+      const prompt = 'Das ist der reine, exakt extrahierte Text von Seite ' + (i + 1) + ' eines Lern-Studienhefts (Fach: ' + subject + '). WICHTIG: Übernimm den Inhalt VOLLSTÄNDIG und WORTGETREU, fasse NICHT zusammen und lasse NICHTS weg (auch keine Aufgabennummern, Vokabeln, Formeln). Deine einzige Aufgabe ist es, den Text sinnvoll in Blöcke zu gliedern und zu klassifizieren.\n\nText:\n"""' + pageText + '"""\n\nGib NUR ein JSON-Objekt zurück: {"blocks": [...]}. Jeder Block: {"type": "pflicht"|"verstehen"|"kontext", "kind": "text"|"aufgabe", "text": "...", "loesung": "..."}. "pflicht" = Kernaussage/Merksatz/Definition/Vokabel/Aufgabenstellung, "verstehen" = wichtig fürs Verständnis, "kontext" = Hintergrund/Beispiel. "loesung" nur bei kind="aufgabe" befüllen, wenn auf der Seite erkennbar, sonst weglassen. Reiner Fließtext-Erklärtext darf in 1-2 Blöcken zusammengefasst werden, aber OHNE Informationsverlust. Antworte NUR mit dem JSON-Objekt.';
+      try {
+        const raw = await callClaude(prompt, { model: getSettings().modelFast, maxTokens: 2000 });
+        const parsed = extractJson(raw);
+        pages.push({ blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [] });
+      } catch (e) {
+        failed++;
+        pages.push({ blocks: [{ type: 'kontext', kind: 'text', text: pageText }] }); // Fallback: Rohtext ohne KI-Gliederung
+      }
+    }
+    const heft = { id: heftId, subject, title, pages, currentPage: 1, dayCounter: 1, sessionsCompleted: 0, streak: 0, createdAt: Date.now(), updatedAt: Date.now() };
+    await idbPut(heft);
+    $('libStatus').textContent = failed ? ('Fertig — ' + failed + ' Seite(n) ohne KI-Gliederung (Rohtext übernommen).') : 'Fertig!';
+    renderLibrary();
+  }
+
+  // ---------------- Reader ----------------
+  function tagLabel(type) {
+    if (type === 'pflicht') return { cls: 'tag-pflicht', label: 'Pflicht' };
+    if (type === 'verstehen') return { cls: 'tag-verstehen', label: 'Verstehen' };
+    return { cls: 'tag-kontext', label: 'Kontext' };
+  }
+
+  function renderPage() {
+    const page = currentHeft.pages[currentPage - 1] || { blocks: [] };
+    const total = currentHeft.pages.length;
+    $('navRow').style.display = 'flex';
+    $('prevBtn').disabled = currentPage <= 1;
+    $('nextBtn').disabled = currentPage >= total;
+    $('progressFill').style.width = Math.round((currentPage / total) * 100) + '%';
+    $('progressLabel').textContent = 'Seite ' + currentPage + ' / ' + total;
+
+    const area = $('pageArea');
+    area.innerHTML = '';
+    const readAllBtn = document.createElement('button');
+    readAllBtn.className = 'icon-btn secondary';
+    readAllBtn.style.marginBottom = '10px';
+    readAllBtn.textContent = '🔊 Ganze Seite vorlesen';
+    readAllBtn.onclick = () => speakSequential(splitIntoSegments((page.blocks || []).map(b => b.text).join('\n\n')));
+    area.appendChild(readAllBtn);
+
+    (page.blocks || []).forEach((block, idx) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const tag = tagLabel(block.type);
+      const tagEl = document.createElement('div');
+      tagEl.className = 'block-tag ' + tag.cls;
+      tagEl.textContent = tag.label;
+      card.appendChild(tagEl);
+
+      const textEl = document.createElement('div');
+      textEl.className = 'block-text';
+      textEl.textContent = block.text;
+      card.appendChild(textEl);
+
+      const speakBtn = document.createElement('button');
+      speakBtn.className = 'icon-btn secondary';
+      speakBtn.style.marginTop = '8px';
+      speakBtn.textContent = '🔊 Vorlesen';
+      speakBtn.onclick = () => speakSequential(splitIntoSegments(block.text));
+      card.appendChild(speakBtn);
+
+      if (block.kind === 'aufgabe') {
+        const box = document.createElement('div');
+        box.className = 'aufgabe-box';
+        const row = document.createElement('div'); row.className = 'answer-row';
+        const input = document.createElement('input'); input.type = 'text'; input.placeholder = 'Deine Antwort (Mikro-Taste der Tastatur nutzen)';
+        const photoInput = document.createElement('input'); photoInput.type = 'file'; photoInput.accept = 'image/*'; photoInput.capture = 'environment'; photoInput.style.display = 'none';
+        const photoBtn = document.createElement('button'); photoBtn.className = 'icon-btn secondary'; photoBtn.textContent = '📷'; photoBtn.title = 'Antwort als Foto';
+        const btn = document.createElement('button'); btn.className = 'icon-btn'; btn.textContent = 'Prüfen';
+        const fb = document.createElement('div'); fb.className = 'feedback-box'; fb.style.display = 'none';
+        const photoStatus = document.createElement('div'); photoStatus.style.cssText = 'font-size:12.5px; color:var(--muted); margin-top:6px; display:none;';
+        let attachedPhoto64 = null;
+
+        photoBtn.onclick = () => photoInput.click();
+        photoInput.onchange = (e) => {
+          const f = e.target.files && e.target.files[0];
+          if (f) {
+            const reader = new FileReader();
+            reader.onload = () => { attachedPhoto64 = reader.result.split(',')[1]; photoStatus.style.display = 'block'; photoStatus.innerHTML = '📷 Foto bereit — <a href="#" style="color:var(--accent);">entfernen</a>'; photoStatus.querySelector('a').onclick = (ev) => { ev.preventDefault(); attachedPhoto64 = null; photoStatus.style.display = 'none'; }; };
+            reader.readAsDataURL(f);
+          }
+          e.target.value = '';
+        };
+
+        btn.onclick = async () => {
+          const val = input.value.trim();
+          if (!val && !attachedPhoto64) return;
+          const key = currentHeft.id + '-' + currentPage + '-' + idx;
+          attemptCounts[key] = (attemptCounts[key] || 0) + 1;
+          btn.disabled = true; fb.style.display = 'block'; fb.innerHTML = '<span class="thinking">Dein Lehrer überlegt…</span>';
+          try {
+            let prompt = 'Du bist ein geduldiger, ruhiger KI-Lehrer, Fach ' + (currentHeft.subject || '') + '.\nAufgabe: "' + block.text + '"\nMusterlösung (NICHT direkt verraten): "' + (block.loesung || '') + '"\n';
+            if (attachedPhoto64) { prompt += 'Der Lernende hat seine (evtl. handschriftliche) Antwort als Foto eingereicht — lies sie sorgfältig.\n'; if (val) prompt += 'Zusätzlicher Kommentar: "' + val + '"\n'; }
+            else { prompt += 'Antwort: "' + val + '"\n'; }
+            prompt += '\nVersuch ' + attemptCounts[key] + '. Bewerte wohlwollend, ohne Druck. Versuch 1: nur sanfter Hinweis, keine Lösung. Versuch 2: deutlicherer Hinweis. Ab Versuch 3: Lösung mit kurzer Erklärung zeigen. Antworte auf Deutsch, max. 3 Sätze.';
+            const res = await callClaude(prompt, { images: attachedPhoto64 || undefined });
+            fb.textContent = res;
+            speakSequential(splitIntoSegments(res));
+          } catch (e) { fb.textContent = feedbackForError(e); }
+          finally { btn.disabled = false; }
+        };
+
+        row.appendChild(input); row.appendChild(photoBtn); row.appendChild(btn);
+        box.appendChild(row); box.appendChild(photoInput); box.appendChild(photoStatus); box.appendChild(fb);
+        card.appendChild(box);
+      }
+      area.appendChild(card);
+    });
+  }
+
+  async function goPage(delta) {
+    const total = currentHeft.pages.length;
+    const next = currentPage + delta;
+    if (next < 1 || next > total) return;
+    currentPage = next;
+    await saveHeftState();
+    renderPage();
+  }
+
+  async function runQuickCheck() {
+    $('quickArea').style.display = 'block'; $('pageArea').style.display = 'none'; $('esaArea').style.display = 'none'; $('navRow').style.display = 'none';
+    const area = $('quickArea');
+    area.innerHTML = '<div class="card"><span class="thinking">Dein Lehrer stellt zwei kurze Fragen…</span></div>';
+    const page = currentHeft.pages[currentPage - 1] || { blocks: [] };
+    const pflichtText = (page.blocks || []).filter(b => b.type === 'pflicht').map(b => b.text).join('\n\n');
+    try {
+      const prompt = 'Erstelle einen 3-Minuten-Schnellcheck zu diesem Pflichtstoff (Fach ' + (currentHeft.subject || '') + '):\n\n' + (pflichtText || '(kein Pflichtstoff auf dieser Seite)') + '\n\nStelle genau 2 kurze Verständnisfragen, nummeriert, ohne Erklärung drumherum. Ruhiger Ton.';
+      const res = await callClaude(prompt, { model: getSettings().modelFast });
+      area.innerHTML = '<div class="card"><div class="block-text">' + res.replace(/\n/g, '<br>') + '</div><div style="margin-top:10px;"><button class="icon-btn secondary" id="quickSpeak">🔊 Vorlesen</button></div></div>';
+      $('quickSpeak').onclick = () => speakSequential(splitIntoSegments(res));
+    } catch (e) { area.innerHTML = '<div class="card">' + feedbackForError(e) + '</div>'; }
+  }
+
+  // ---------------- ESA-Check ----------------
+  let esaFiles = [];
+  function renderEsaCheck() {
+    $('esaArea').style.display = 'block'; $('pageArea').style.display = 'none'; $('quickArea').style.display = 'none'; $('navRow').style.display = 'none';
+    esaFiles = [];
+    const area = $('esaArea');
+    area.innerHTML = '';
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = '<div class="block-text" style="margin-bottom:10px;">Fotografiere deine fertig bearbeiteten ESA-Seiten (eine oder mehrere) — dein Lehrer prüft sie einmal komplett durch, BEVOR du sie einsendest: fehlt etwas, sind Fehler drin, ist alles beantwortet.</div>';
+    const inputCam = document.createElement('input'); inputCam.type = 'file'; inputCam.accept = 'image/*'; inputCam.capture = 'environment'; inputCam.style.display = 'none';
+    const inputGal = document.createElement('input'); inputGal.type = 'file'; inputGal.accept = 'image/*'; inputGal.multiple = true; inputGal.style.display = 'none';
+    const row = document.createElement('div'); row.style.cssText = 'display:flex; gap:8px; margin-bottom:10px;';
+    const camBtn = document.createElement('button'); camBtn.className = 'icon-btn secondary'; camBtn.style.flex = '1'; camBtn.textContent = '📷 Foto aufnehmen';
+    const galBtn = document.createElement('button'); galBtn.className = 'icon-btn secondary'; galBtn.style.flex = '1'; galBtn.textContent = '🖼️ Aus Fotos wählen';
+    camBtn.onclick = () => inputCam.click(); galBtn.onclick = () => inputGal.click();
+    row.appendChild(camBtn); row.appendChild(galBtn);
+    const status = document.createElement('div'); status.className = 'badge-quiet'; status.textContent = 'Noch keine Seiten ausgewählt.';
+    function toB64(file) { return new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.readAsDataURL(file); }); }
+    inputCam.onchange = async (e) => { if (e.target.files[0]) { esaFiles.push(await toB64(e.target.files[0])); status.textContent = esaFiles.length + ' Seite(n) bereit.'; } e.target.value=''; };
+    inputGal.onchange = async (e) => { for (const f of e.target.files) esaFiles.push(await toB64(f)); status.textContent = esaFiles.length + ' Seite(n) bereit.'; e.target.value=''; };
+    const checkBtn = document.createElement('button'); checkBtn.className = 'icon-btn'; checkBtn.style.width = '100%'; checkBtn.textContent = 'Vor dem Versand prüfen';
+    const fb = document.createElement('div'); fb.className = 'feedback-box'; fb.style.display = 'none';
+    checkBtn.onclick = async () => {
+      if (!esaFiles.length) return;
+      checkBtn.disabled = true; fb.style.display = 'block'; fb.innerHTML = '<span class="thinking">Dein Lehrer liest alles durch…</span>';
+      const heftKontext = currentHeft.pages.flatMap(p => (p.blocks||[]).filter(b=>b.kind==='aufgabe').map(b=>b.text)).slice(0,40).join('\n---\n');
+      const prompt = 'Du bist ein erfahrener, wohlwollender Lehrer. Der Lernende (Fach ' + (currentHeft.subject||'') + ') hat seine fertige Einsendeaufgabe (ESA) fotografiert und möchte sie EINMAL VOR DEM VERSAND checken lassen (kein amtliches Grading, nur ein zweiter Blick). Bekannte Aufgabenstellungen aus dem Heft zum Abgleich:\n' + heftKontext + '\n\nPrüfe: 1) Wirkt irgendetwas unbeantwortet/unvollständig? 2) Fallen dir inhaltliche oder offensichtliche Fehler auf? 3) Gibt es Formalia (Name, Vertragsnummer o.ä.), die typischerweise fehlen? Antworte strukturiert, aber knapp (max. 6 Sätze), konstruktiv und ohne Druck, auf Deutsch.';
+      try { const res = await callClaude(prompt, { images: esaFiles, maxTokens: 1000 }); fb.textContent = res; speakSequential(splitIntoSegments(res)); }
+      catch (e) { fb.textContent = feedbackForError(e); }
+      finally { checkBtn.disabled = false; }
+    };
+    area.appendChild(card);
+    card.appendChild(row); card.appendChild(inputCam); card.appendChild(inputGal); card.appendChild(status); card.appendChild(document.createElement('br')); card.appendChild(checkBtn); card.appendChild(fb);
+  }
+
+  // ---------------- Ask teacher ----------------
+  function openAskSheet() {
+    $('askSheet').style.display = 'flex';
+    $('answerArea').innerHTML = ''; $('fallbackInput').value = '';
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { $('micBtn').style.display = 'none'; $('askHint').textContent = 'Spracherkennung hier nicht verfügbar — tippe unten und nutze die Mikro-Taste deiner Tastatur.'; }
+    else { $('micBtn').style.display = 'block'; $('askHint').textContent = 'Antippen und reden – oder unten mit der Mikro-Taste deiner Tastatur diktieren.'; }
+  }
+  function closeAskSheet() { $('askSheet').style.display = 'none'; stopSpeaking(); if (recog) { try { recog.stop(); } catch(e){} } }
+  function tryVoiceInput() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    try {
+      recog = new SR(); recog.lang = 'de-DE'; recog.interimResults = false; recog.maxAlternatives = 1;
+      $('micBtn').classList.add('listening'); $('micBtn').textContent = '🎙️ Ich höre zu…';
+      recog.onresult = (ev) => { const text = ev.results[0][0].transcript; $('fallbackInput').value = text; askQuestion(text); };
+      recog.onerror = (ev) => {
+        $('micBtn').classList.remove('listening'); $('micBtn').textContent = '🎙️ Antippen & sprechen';
+        let msg = 'Spracherkennung hat nicht geklappt — tippe unten aufs Textfeld.';
+        if (ev && ev.error === 'not-allowed') msg = 'Mikrofon-Zugriff blockiert. Tippe unten aufs Textfeld und nutze die Mikro-Taste deiner Tastatur.';
+        $('askHint').textContent = msg;
+      };
+      recog.onend = () => { $('micBtn').classList.remove('listening'); $('micBtn').textContent = '🎙️ Antippen & sprechen'; };
+      recog.start();
+    } catch (e) { $('askHint').textContent = 'Spracherkennung hier nicht verfügbar.'; }
+  }
+  async function askQuestion(question) {
+    if (!question) return;
+    const area = $('answerArea');
+    area.innerHTML = '<div class="feedback-box thinking">Dein Lehrer überlegt…</div>';
+    try {
+      const page = currentHeft.pages[currentPage - 1] || { blocks: [] };
+      const pageText = (page.blocks || []).map(b => b.text).join('\n\n');
+      const prompt = 'Du bist ein geduldiger, ruhiger KI-Lehrer, Fach ' + (currentHeft.subject || '') + '. Aktuelle Heftseite (' + currentPage + '/' + currentHeft.pages.length + '):\n\n' + pageText + '\n\nFrage des Lernenden (evtl. per Spracherkennung, kleine Fehler wohlwollend interpretieren):\n"' + question + '"\n\nAntworte kurz, klar, ruhig, ohne Druck, direkt angesprochen, auf Deutsch.';
+      const res = await callClaude(prompt);
+      area.innerHTML = '<div class="feedback-box">' + res.replace(/\n/g, '<br>') + '</div>';
+      speakSequential(splitIntoSegments(res));
+    } catch (e) { area.innerHTML = '<div class="feedback-box">' + feedbackForError(e) + '</div>'; }
+  }
+
+  // ---------------- Init & bindings ----------------
+  async function init() {
+    cachedVoices = await loadVoices().catch(() => []);
+    const s = getSettings();
+    $('apiKeyInput').value = s.apiKey;
+    $('modelMainInput').value = s.modelMain;
+    $('modelFastInput').value = s.modelFast;
+
+    $('settingsBtn').onclick = () => $('settingsSheet').style.display = 'flex';
+    $('closeSettingsBtn').onclick = () => $('settingsSheet').style.display = 'none';
+    $('saveSettingsBtn').onclick = () => {
+      saveSettings({ apiKey: $('apiKeyInput').value.trim(), modelMain: $('modelMainInput').value.trim() || 'claude-sonnet-5', modelFast: $('modelFastInput').value.trim() || 'claude-haiku-4-5-20251001' });
+      $('settingsSheet').style.display = 'none';
+    };
+    $('titleHome').onclick = renderLibrary;
+    $('backToLibraryBtn').onclick = () => { stopSpeaking(); renderLibrary(); };
+
+    $('uploadPdfBtn').onclick = () => {
+      if (!getSettings().apiKey) { alert('Bitte zuerst unter ⚙️ Einstellungen deinen API-Key eintragen.'); $('settingsSheet').style.display = 'flex'; return; }
+      $('pdfFileInput').click();
+    };
+    $('pdfFileInput').onchange = (e) => { if (e.target.files[0]) importPdf(e.target.files[0]); e.target.value = ''; };
+
+    $('prevBtn').onclick = () => goPage(-1);
+    $('nextBtn').onclick = () => goPage(1);
+    $('modeFull').onclick = () => { $('modeFull').classList.add('active'); $('modeQuick').classList.remove('active'); $('modeEsa').classList.remove('active'); $('quickArea').style.display='none'; $('esaArea').style.display='none'; $('pageArea').style.display='block'; $('navRow').style.display='flex'; };
+    $('modeQuick').onclick = () => { $('modeQuick').classList.add('active'); $('modeFull').classList.remove('active'); $('modeEsa').classList.remove('active'); runQuickCheck(); };
+    $('modeEsa').onclick = () => { $('modeEsa').classList.add('active'); $('modeFull').classList.remove('active'); $('modeQuick').classList.remove('active'); renderEsaCheck(); };
+
+    $('askFab').onclick = openAskSheet;
+    $('closeAskBtn').onclick = closeAskSheet;
+    $('sendBtn').onclick = () => askQuestion($('fallbackInput').value.trim());
+    $('fallbackInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') askQuestion($('fallbackInput').value.trim()); });
+    $('micBtn').onclick = tryVoiceInput;
+    $('stopSpeakBtn').onclick = stopSpeaking;
+
+    setInterval(() => {
+      const speaking = ('speechSynthesis' in window) && window.speechSynthesis.speaking;
+      $('stopSpeakBtn').style.display = speaking ? 'flex' : 'none';
+    }, 300);
+
+    renderLibrary();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
