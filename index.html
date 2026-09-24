@@ -121,6 +121,8 @@
     <button class="mode-btn" id="modeEsa">ESA-Check</button>
   </div>
 
+  <button class="icon-btn secondary" id="toolsBtn" style="width:100%; margin: -8px 0 16px 0;">📋 Überblick & Merkzettel</button>
+
   <div id="quickArea" style="display:none;"></div>
   <div id="esaArea" style="display:none;"></div>
   <div id="pageArea"></div>
@@ -150,6 +152,21 @@
     <div class="hint">Verbrauch & Kosten siehst du in deiner Anthropic-Konsole (console.anthropic.com). Ändert sich mal ein Modellname, trag ihn hier einfach neu ein.</div>
     <button class="icon-btn" id="saveSettingsBtn" style="width:100%; margin-top:10px;">Speichern</button>
     <div class="close-row"><button class="close-link" id="closeSettingsBtn">Schließen</button></div>
+  </div>
+</div>
+
+<!-- ============ SHEET: TOOLS (Überblick & Merkzettel) ============ -->
+<div class="sheet-backdrop" id="toolsSheet" style="display:none;">
+  <div class="sheet">
+    <h2>Überblick & Merkzettel</h2>
+    <div id="toolsMenu">
+      <button class="icon-btn secondary" style="width:100%; margin-bottom:8px;" id="toolOverviewBtn">🗺️ Gesamtüberblick (ganzes Heft)</button>
+      <button class="icon-btn secondary" style="width:100%; margin-bottom:8px;" id="toolChapterBtn">📖 Seitenbereich zusammenfassen</button>
+      <button class="icon-btn secondary" style="width:100%; margin-bottom:8px;" id="toolEsaBtn">🎯 Was brauche ich für die ESA?</button>
+      <button class="icon-btn secondary" style="width:100%; margin-bottom:8px;" id="toolMerkzettelBtn">📝 Merkzettel erstellen</button>
+    </div>
+    <div id="toolsResult"></div>
+    <div class="close-row"><button class="close-link" id="closeToolsBtn">Schließen</button></div>
   </div>
 </div>
 
@@ -592,6 +609,118 @@
     } catch (e) { area.innerHTML = '<div class="card">' + feedbackForError(e) + '</div>'; }
   }
 
+  // ---------------- Überblick & Merkzettel ----------------
+  function collectHeftText(fromPage, toPage, types) {
+    const from = fromPage || 1;
+    const to = Math.min(toPage || currentHeft.pages.length, currentHeft.pages.length);
+    const parts = [];
+    for (let p = from; p <= to; p++) {
+      const page = currentHeft.pages[p - 1];
+      (page.blocks || []).forEach(b => {
+        if (!types || types.includes(b.type)) {
+          let line = '[S.' + p + '] ' + b.text;
+          if (b.kind === 'aufgabe' && b.loesung) line += '\n(Lösung: ' + b.loesung + ')';
+          parts.push(line);
+        }
+      });
+    }
+    return parts.join('\n\n');
+  }
+
+  function openToolsSheet() { $('toolsSheet').style.display = 'flex'; $('toolsMenu').style.display = 'block'; $('toolsResult').innerHTML = ''; }
+  function closeToolsSheet() { $('toolsSheet').style.display = 'none'; stopSpeaking(); }
+  function toolsBack() { $('toolsMenu').style.display = 'block'; $('toolsResult').innerHTML = ''; }
+  function renderToolResult(html) {
+    $('toolsMenu').style.display = 'none';
+    $('toolsResult').innerHTML = '<button class="close-link" id="toolsBackBtn" style="margin-bottom:10px;">← Andere Ansicht</button>' + html;
+    $('toolsBackBtn').onclick = toolsBack;
+  }
+
+  function showOverviewResult(text, cacheKey, fromPage, toPage, label) {
+    const html = '<div class="card"><div class="block-text">' + text.replace(/\n/g, '<br>') + '</div>' +
+      '<div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">' +
+      '<button class="icon-btn secondary" id="ovSpeak">🔊 Vorlesen</button>' +
+      '<button class="icon-btn secondary" id="ovCopy">📋 Kopieren</button>' +
+      '<button class="icon-btn secondary" id="ovRegen">🔄 Neu erstellen</button>' +
+      '</div></div>';
+    renderToolResult(html);
+    $('ovSpeak').onclick = () => speakSequential(splitIntoSegments(text));
+    $('ovCopy').onclick = async () => { try { await navigator.clipboard.writeText(text); } catch (e) {} $('ovCopy').textContent = '✅ Kopiert'; setTimeout(() => { $('ovCopy').textContent = '📋 Kopieren'; }, 1200); };
+    $('ovRegen').onclick = async () => { delete currentHeft.cache[cacheKey]; await idbPut(currentHeft); runOverview(fromPage, toPage, label, cacheKey); };
+  }
+
+  async function runOverview(fromPage, toPage, label, cacheKey) {
+    currentHeft.cache = currentHeft.cache || {};
+    if (currentHeft.cache[cacheKey]) { showOverviewResult(currentHeft.cache[cacheKey], cacheKey, fromPage, toPage, label); return; }
+    renderToolResult('<div class="card"><span class="thinking">Dein Lehrer verschafft sich einen Überblick…</span></div>');
+    const text = collectHeftText(fromPage, toPage, ['pflicht', 'verstehen']);
+    const prompt = 'Du bist ein Lehrer. Hier ist der Inhalt ' + label + ' eines Studienhefts (Fach ' + (currentHeft.subject || '') + '):\n\n' + text + '\n\nSchreibe einen kompakten Überblick (max. 8 Sätze) für den WIEDEREINSTIEG: worum geht es insgesamt, welche Hauptthemen werden behandelt, roter Faden. Orientierung geben, keine Detailprüfung. Auf Deutsch.';
+    try {
+      const res = await callClaude(prompt, { maxTokens: 700 });
+      currentHeft.cache[cacheKey] = res;
+      await idbPut(currentHeft);
+      showOverviewResult(res, cacheKey, fromPage, toPage, label);
+    } catch (e) { renderToolResult('<div class="card">' + feedbackForError(e) + '</div>'); }
+  }
+
+  function toolChapterPrompt() {
+    const html = '<div class="card"><div class="block-text" style="margin-bottom:10px;">Welcher Seitenbereich?</div>' +
+      '<div style="display:flex; gap:8px; align-items:center;">' +
+      '<input type="number" id="chFrom" min="1" max="' + currentHeft.pages.length + '" placeholder="von" style="width:70px;">' +
+      '<input type="number" id="chTo" min="1" max="' + currentHeft.pages.length + '" placeholder="bis" style="width:70px;">' +
+      '<button class="icon-btn" id="chGoBtn">Los</button>' +
+      '</div></div>';
+    renderToolResult(html);
+    $('chGoBtn').onclick = () => {
+      const f = parseInt($('chFrom').value, 10) || 1;
+      const t = parseInt($('chTo').value, 10) || currentHeft.pages.length;
+      runOverview(f, t, 'von Seite ' + f + ' bis ' + t, 'range_' + f + '_' + t);
+    };
+  }
+
+  async function runEsaFocus() {
+    currentHeft.cache = currentHeft.cache || {};
+    if (currentHeft.cache.esaFocus) { showOverviewResult(currentHeft.cache.esaFocus, 'esaFocus', 1, currentHeft.pages.length, 'des gesamten Hefts'); return; }
+    renderToolResult('<div class="card"><span class="thinking">Dein Lehrer sichtet den Stoff…</span></div>');
+    const text = collectHeftText(1, currentHeft.pages.length, ['pflicht']);
+    const prompt = 'Hier ist der Pflichtstoff eines Studienhefts (Fach ' + (currentHeft.subject || '') + '):\n\n' + text + '\n\nListe konkret auf, was davon für die Einsendeaufgabe (ESA) vermutlich wichtig ist: Kernregeln, Definitionen, Vokabeln, Aufgabentypen, die typischerweise abgefragt/angewendet werden. Als klare, kurze Liste (max. 10 Punkte), auf Deutsch.';
+    try {
+      const res = await callClaude(prompt, { maxTokens: 800 });
+      currentHeft.cache.esaFocus = res;
+      await idbPut(currentHeft);
+      showOverviewResult(res, 'esaFocus', 1, currentHeft.pages.length, 'des gesamten Hefts');
+    } catch (e) { renderToolResult('<div class="card">' + feedbackForError(e) + '</div>'); }
+  }
+
+  function showMerkzettelResult(items) {
+    let html = '<div style="margin-bottom:10px; display:flex; gap:8px;"><button class="icon-btn secondary" id="mzCopyAll">📋 Alles kopieren</button><button class="icon-btn secondary" id="mzRegen">🔄 Neu erstellen</button></div>';
+    items.forEach(it => {
+      html += '<div class="card"><div style="font-weight:700; margin-bottom:6px;">' + (it.thema || '') + '</div>' +
+        '<div style="font-style:italic; border-left:3px solid var(--accent); padding-left:10px; margin-bottom:8px; color:var(--muted);">' + (it.zitat || '') + '</div>' +
+        '<div class="block-text">' + (it.erklaerung || '') + '</div></div>';
+    });
+    renderToolResult(html);
+    const fullText = items.map(it => (it.thema || '') + '\n„' + (it.zitat || '') + '"\n' + (it.erklaerung || '')).join('\n\n');
+    $('mzCopyAll').onclick = async () => { try { await navigator.clipboard.writeText(fullText); } catch (e) {} $('mzCopyAll').textContent = '✅ Kopiert'; setTimeout(() => { $('mzCopyAll').textContent = '📋 Alles kopieren'; }, 1200); };
+    $('mzRegen').onclick = async () => { delete currentHeft.cache.merkzettel; await idbPut(currentHeft); runMerkzettel(); };
+  }
+
+  async function runMerkzettel() {
+    currentHeft.cache = currentHeft.cache || {};
+    if (currentHeft.cache.merkzettel) { showMerkzettelResult(currentHeft.cache.merkzettel); return; }
+    renderToolResult('<div class="card"><span class="thinking">Dein Lehrer stellt den Merkzettel zusammen…</span></div>');
+    const text = collectHeftText(1, currentHeft.pages.length, ['pflicht', 'verstehen']);
+    const prompt = 'Erstelle einen Merkzettel aus folgendem Heft-Inhalt (Fach ' + (currentHeft.subject || '') + '). Für jedes wichtige Thema (Regel, Definition, Vokabelgruppe, Formel, Merksatz): 1) ein DIREKTES, wortgetreues Zitat aus dem Text unten (nicht paraphrasieren!), 2) eine kurze eigene Erklärung in einfachen Worten.\n\nText:\n' + text + '\n\nGib NUR JSON zurück: {"merkzettel":[{"thema":"...","zitat":"...","erklaerung":"..."}]}. 8 bis 15 Einträge, auf Deutsch.';
+    try {
+      const raw = await callClaude(prompt, { maxTokens: 3000 });
+      const parsed = extractJson(raw);
+      const items = Array.isArray(parsed.merkzettel) ? parsed.merkzettel : [];
+      currentHeft.cache.merkzettel = items;
+      await idbPut(currentHeft);
+      showMerkzettelResult(items);
+    } catch (e) { renderToolResult('<div class="card">' + feedbackForError(e) + '</div>'); }
+  }
+
   // ---------------- ESA-Check ----------------
   let esaFiles = [];
   function renderEsaCheck() {
@@ -698,6 +827,12 @@
     $('modeFull').onclick = () => { $('modeFull').classList.add('active'); $('modeQuick').classList.remove('active'); $('modeEsa').classList.remove('active'); $('quickArea').style.display='none'; $('esaArea').style.display='none'; $('pageArea').style.display='block'; $('navRow').style.display='flex'; };
     $('modeQuick').onclick = () => { $('modeQuick').classList.add('active'); $('modeFull').classList.remove('active'); $('modeEsa').classList.remove('active'); runQuickCheck(); };
     $('modeEsa').onclick = () => { $('modeEsa').classList.add('active'); $('modeFull').classList.remove('active'); $('modeQuick').classList.remove('active'); renderEsaCheck(); };
+    $('toolsBtn').onclick = openToolsSheet;
+    $('closeToolsBtn').onclick = closeToolsSheet;
+    $('toolOverviewBtn').onclick = () => runOverview(1, currentHeft.pages.length, 'des gesamten Hefts', 'overview');
+    $('toolChapterBtn').onclick = toolChapterPrompt;
+    $('toolEsaBtn').onclick = runEsaFocus;
+    $('toolMerkzettelBtn').onclick = runMerkzettel;
 
     $('askFab').onclick = openAskSheet;
     $('closeAskBtn').onclick = closeAskSheet;
