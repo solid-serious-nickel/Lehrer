@@ -3,851 +3,1017 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Dein Lehrer</title>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<title>Wissensspeicher</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wissensspeicher">
+<meta name="theme-color" content="#24392B">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f7f5f1; --fg: #2a2622; --card-bg: #ffffff; --card-border: #e6e1d8;
-    --muted: #8a8478; --accent: #3f6b52; --accent-fg: #ffffff;
-    --pflicht: #b8492f; --pflicht-bg: #fbeae5;
-    --verstehen: #a9791a; --verstehen-bg: #fbf1dc;
-    --kontext: #6b7280; --kontext-bg: #eef0f2;
-    --shadow: 0 2px 10px rgba(0,0,0,0.06);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --font-sans: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+
+    --ink: #24392B;
+    --ink-dark: #182619;
+    --gold: #B8862F;
+    --gold-soft: rgba(184, 134, 47, 0.20);
+    --gold-strong: rgba(184, 134, 47, 0.55);
+
+    --bg: #EFEAE0;
+    --text: #201D16;
+    --text-muted: #6B6355;
+    --divider: #DAD3C2;
+    --surface: #F7F4EC;
+    --danger: #9A3B2E;
+
+    --space-xs: 6px;
+    --space-sm: 10px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --radius: 10px;
   }
+
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #1b1a17; --fg: #ece8e1; --card-bg: #26241f; --card-border: #3a3630;
-      --muted: #9b9587; --accent: #6fa585; --accent-fg: #10231a;
-      --pflicht: #e08767; --pflicht-bg: #3a241d;
-      --verstehen: #dcb659; --verstehen-bg: #3a3018;
-      --kontext: #a3a9b3; --kontext-bg: #2b2e33;
-      --shadow: 0 2px 10px rgba(0,0,0,0.35);
+      --bg: #14140F;
+      --text: #EDE7D8;
+      --text-muted: #A79C89;
+      --divider: #2E2B23;
+      --surface: #1B1B14;
+      --gold: #D4A64B;
+      --gold-soft: rgba(212, 166, 75, 0.22);
+      --gold-strong: rgba(212, 166, 75, 0.5);
+      --ink: #16241B;
+      --ink-dark: #0F1811;
     }
   }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0; background: var(--bg); color: var(--fg); min-height: 100%;
-    padding: env(safe-area-inset-top,0px) 14px calc(100px + env(safe-area-inset-bottom,0px)) 14px;
-    max-width: 640px; margin-inline: auto;
+  :root[data-theme="dark"] {
+    --bg: #14140F;
+    --text: #EDE7D8;
+    --text-muted: #A79C89;
+    --divider: #2E2B23;
+    --surface: #1B1B14;
+    --gold: #D4A64B;
+    --gold-soft: rgba(212, 166, 75, 0.22);
+    --gold-strong: rgba(212, 166, 75, 0.5);
+    --ink: #16241B;
+    --ink-dark: #0F1811;
   }
-  .topbar { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-top:14px; margin-bottom:14px; }
-  .topbar h1 { font-size:17px; margin:0; font-weight:700; cursor:pointer; }
-  .icon-link { background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; padding:4px; }
-  .day-chip { background:var(--card-bg); border:1px solid var(--card-border); border-radius:999px; padding:6px 12px; font-size:13px; color:var(--muted); white-space:nowrap; }
-  .card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:16px; padding:14px 16px; margin-bottom:12px; box-shadow:var(--shadow); }
-  .block-tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; padding:3px 9px; border-radius:999px; margin-bottom:8px; }
-  .tag-pflicht { color:var(--pflicht); background:var(--pflicht-bg); }
-  .tag-verstehen { color:var(--verstehen); background:var(--verstehen-bg); }
-  .tag-kontext { color:var(--kontext); background:var(--kontext-bg); }
-  .block-text { font-size:15.5px; line-height:1.55; white-space:pre-wrap; }
-  .aufgabe-box { margin-top:10px; padding-top:10px; border-top:1px dashed var(--card-border); }
-  .answer-row { display:flex; gap:8px; margin-top:10px; flex-wrap: wrap; }
-  .answer-row input[type=text] { flex:1; min-width:120px; border:1px solid var(--card-border); border-radius:10px; padding:10px 12px; font-size:15px; background:var(--bg); color:var(--fg); }
-  .icon-btn { border:none; border-radius:10px; background:var(--accent); color:var(--accent-fg); padding:10px 14px; font-size:14px; font-weight:600; cursor:pointer; }
-  .icon-btn.secondary { background:var(--card-border); color:var(--fg); }
-  .icon-btn.danger { background: var(--pflicht); color: #fff; }
-  .icon-btn:disabled { opacity:.5; }
-  .feedback-box { margin-top:10px; font-size:14px; line-height:1.5; padding:10px 12px; background:var(--kontext-bg); border-radius:10px; white-space: pre-wrap; }
-  .nav-row { display:flex; justify-content:space-between; gap:10px; margin-top:4px; margin-bottom:20px; }
-  .nav-btn { flex:1; padding:12px; border-radius:12px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--fg); font-size:14px; font-weight:600; cursor:pointer; }
-  .nav-btn:disabled { opacity:.4; }
-  .fab { position:fixed; bottom:calc(22px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); background:var(--accent); color:var(--accent-fg); border:none; border-radius:999px; padding:14px 22px; font-size:15px; font-weight:700; box-shadow:var(--shadow); display:flex; align-items:center; gap:8px; cursor:pointer; max-width:calc(100% - 28px); z-index:30; }
-  .stop-fab { position:fixed; bottom:calc(22px + env(safe-area-inset-bottom,0px)); right:16px; background:var(--pflicht); color:#fff; border:none; border-radius:999px; width:52px; height:52px; font-size:20px; box-shadow:var(--shadow); cursor:pointer; display:none; align-items:center; justify-content:center; z-index:40; }
-  .sheet-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:flex-end; justify-content:center; z-index:50; }
-  .sheet { background:var(--card-bg); width:100%; max-width:640px; max-height:88vh; overflow-y:auto; border-radius:20px 20px 0 0; padding:18px 18px calc(26px + env(safe-area-inset-bottom,0px)) 18px; box-shadow:var(--shadow); }
-  .sheet h2 { margin:0 0 10px 0; font-size:16px; }
-  .hint { font-size:12.5px; color:var(--muted); margin-bottom:12px; }
-  .mic-btn { width:100%; padding:16px; border-radius:14px; border:none; background:var(--pflicht-bg); color:var(--pflicht); font-size:15px; font-weight:700; margin-bottom:10px; cursor:pointer; }
-  .mic-btn.listening { background:var(--pflicht); color:#fff; }
-  .close-row { text-align:right; margin-top:8px; }
-  .close-link { color:var(--muted); font-size:13px; background:none; border:none; cursor:pointer; }
-  .thinking { color:var(--muted); font-style:italic; }
-  .badge-quiet { font-size:12px; color:var(--muted); margin:6px 0; }
-  .heft-title { font-size:13px; color:var(--muted); margin-bottom:2px; }
-  .heft-name { font-size:17px; font-weight:700; margin-bottom:14px; }
-  .progress-bar-bg { height:6px; background:var(--card-border); border-radius:999px; overflow:hidden; }
-  .progress-bar-fill { height:100%; background:var(--accent); border-radius:999px; transition:width .3s ease; }
-  .progress-label { font-size:12px; color:var(--muted); margin-top:5px; margin-bottom:16px; }
-  .mode-row { display:flex; gap:10px; margin-bottom:18px; }
-  .mode-btn { flex:1; padding:12px 8px; border-radius:14px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--fg); font-size:13px; font-weight:600; text-align:center; cursor:pointer; }
-  .mode-btn.active { border-color:var(--accent); color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
-  .lib-item { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border:1px solid var(--card-border); border-radius:14px; margin-bottom:10px; background:var(--card-bg); cursor:pointer; }
-  .lib-item .meta { font-size:12px; color:var(--muted); }
-  .lib-item .del { background:none; border:none; color:var(--muted); font-size:18px; padding:4px 8px; cursor:pointer; }
-  .field-label { font-size:12.5px; color:var(--muted); margin: 10px 0 4px 0; }
-  input[type=text], input[type=password] { width:100%; border:1px solid var(--card-border); border-radius:10px; padding:10px 12px; font-size:15px; background:var(--bg); color:var(--fg); }
-  .screen { display:none; }
-  .screen.active { display:block; }
+
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    min-height: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ---------- Header ---------- */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--ink);
+    padding: calc(var(--space-md) + env(safe-area-inset-top, 0px)) var(--space-md) var(--space-md);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.15);
+  }
+  .header-title {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 1.3rem;
+    color: #F4EFE2;
+    margin: 0 0 var(--space-sm) 0;
+  }
+  .search-wrap { position: relative; }
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    opacity: 0.55;
+  }
+  .search-input {
+    width: 100%;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    padding: 12px 40px 12px 38px;
+    border-radius: var(--radius);
+    border: none;
+    background: #F4EFE2;
+    color: #201D16;
+    outline: none;
+  }
+  .search-input::placeholder { color: #837A66; }
+  .search-input:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
+  .clear-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: #6B6355;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 8px;
+    cursor: pointer;
+    display: none;
+  }
+  .search-wrap.has-value .clear-btn { display: block; }
+
+  /* ---------- Layout ---------- */
+  .view { display: none; }
+  .view.active { display: block; }
+  .body-pad { padding: var(--space-md); padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+  .section-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0 0 var(--space-sm) 0;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px var(--space-md);
+    color: var(--text-muted);
+  }
+  .empty-state .big { font-family: var(--font-serif); font-size: 1.15rem; color: var(--text); margin-bottom: 6px; }
+
+  /* ---------- File list rows ---------- */
+  .file-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--divider);
+    cursor: pointer;
+  }
+  .file-row:last-child { border-bottom: none; }
+  .file-row-main { min-width: 0; }
+  .file-row-title {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin: 0 0 3px 0;
+    overflow-wrap: break-word;
+  }
+  .file-row-meta { font-size: 0.82rem; color: var(--text-muted); }
+  .file-row-badge {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    color: var(--ink);
+    background: var(--gold-soft);
+    border-radius: 999px;
+    padding: 3px 10px;
+    white-space: nowrap;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .file-row-badge { color: var(--gold); }
+  }
+  :root[data-theme="dark"] .file-row-badge { color: var(--gold); }
+
+  /* ---------- Search results ---------- */
+  .result-group { margin-bottom: var(--space-lg); }
+  .result-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    cursor: pointer;
+    margin-bottom: var(--space-xs);
+  }
+  .result-group-title { font-family: var(--font-serif); font-weight: 600; font-size: 1.02rem; }
+  .result-group-count { font-size: 0.8rem; color: var(--text-muted); flex-shrink: 0; }
+  .snippet {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+    padding: 8px 10px;
+    background: var(--surface);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+  }
+  .snippet mark, .file-content mark.match {
+    background: var(--gold-soft);
+    color: var(--text);
+    border-radius: 3px;
+    padding: 0 1px;
+  }
+  .file-content mark.match.active {
+    background: var(--gold-strong);
+  }
+
+  /* ---------- FAB ---------- */
+  .fab {
+    position: fixed;
+    right: var(--space-lg);
+    bottom: calc(var(--space-lg) + env(safe-area-inset-bottom, 0px));
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #F4EFE2;
+    border: none;
+    font-size: 1.8rem;
+    line-height: 1;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    cursor: pointer;
+    z-index: 15;
+  }
+
+  /* ---------- File detail view ---------- */
+  .file-view-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--ink);
+    padding: calc(var(--space-sm) + env(safe-area-inset-top, 0px)) var(--space-md) var(--space-sm);
+  }
+  .fv-top-row { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+  .icon-btn {
+    background: transparent;
+    border: none;
+    color: #F4EFE2;
+    font-size: 1.3rem;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  .icon-btn:active { background: rgba(255,255,255,0.12); }
+  .fv-title {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 1.08rem;
+    color: #F4EFE2;
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .fv-actions { display: flex; gap: 2px; flex-shrink: 0; }
+  .match-nav {
+    display: none;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: var(--space-xs);
+  }
+  .match-nav.active { display: flex; }
+  .match-nav span { font-size: 0.82rem; color: #D8D2C0; margin: 0 6px; }
+  .file-meta-line {
+    padding: var(--space-md) var(--space-md) 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .file-content {
+    padding: var(--space-md);
+    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    font-size: 0.98rem;
+    line-height: 1.65;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn-primary, .btn-secondary, .btn-danger {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 0.98rem;
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+  }
+  .btn-primary { background: var(--ink); color: #F4EFE2; }
+  .btn-primary:disabled { opacity: 0.4; cursor: default; }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--divider); }
+  .btn-danger { background: var(--danger); color: #fff; }
+
+  /* ---------- Sheet (add file) ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 20, 15, 0.5);
+    z-index: 30;
+    display: none;
+  }
+  .overlay.active { display: block; }
+  .sheet {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 31;
+    background: var(--bg);
+    border-radius: 16px 16px 0 0;
+    padding: var(--space-lg) var(--space-md) calc(var(--space-lg) + env(safe-area-inset-bottom, 0px));
+    max-height: 88vh;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+  }
+  .overlay.active .sheet { transform: translateY(0); }
+  .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md); }
+  .sheet-header h2 { font-family: var(--font-serif); font-size: 1.2rem; margin: 0; }
+  .field-label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px; }
+  .text-input, textarea.text-input {
+    width: 100%;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    padding: 11px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--divider);
+    background: var(--surface);
+    color: var(--text);
+    margin-bottom: var(--space-md);
+    outline: none;
+  }
+  .text-input:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
+  textarea.text-input { resize: vertical; min-height: 140px; font-family: var(--font-sans); }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: var(--space-md); }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 9px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--divider);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+  }
+  .tab.active { background: var(--ink); color: #F4EFE2; border-color: var(--ink); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .file-drop {
+    border: 1px dashed var(--divider);
+    border-radius: 8px;
+    padding: var(--space-md);
+    text-align: center;
+    margin-bottom: var(--space-sm);
+  }
+  .file-drop input[type=file] { width: 100%; font-size: 0.9rem; color: var(--text-muted); }
+  .hint { font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 var(--space-md); }
+  .hint.hidden { display: none; }
+
+  /* ---------- Confirm dialog ---------- */
+  .confirm-box {
+    position: fixed;
+    left: var(--space-md); right: var(--space-md);
+    top: 50%; transform: translateY(-50%);
+    z-index: 41;
+    background: var(--bg);
+    border-radius: 14px;
+    padding: var(--space-lg) var(--space-md);
+    display: none;
+  }
+  .confirm-box.active { display: block; }
+  .confirm-box p { font-family: var(--font-serif); font-size: 1.05rem; margin: 0 0 var(--space-lg) 0; }
+  .confirm-actions { display: flex; gap: var(--space-sm); }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    transform: translate(-50%, 12px);
+    background: var(--ink);
+    color: #F4EFE2;
+    padding: 11px 18px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    max-width: 88vw;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
-<!-- ============ TOPBAR ============ -->
-<div class="topbar">
-  <h1 id="titleHome">🎓 Dein Lehrer</h1>
-  <div style="display:flex; gap:10px; align-items:center;">
-    <div class="day-chip" id="dayChip" style="display:none;">Tag –</div>
-    <button class="icon-link" id="settingsBtn" title="Einstellungen">⚙️</button>
-  </div>
-</div>
-
-<!-- ============ SCREEN: LIBRARY ============ -->
-<div class="screen active" id="screenLibrary">
-  <div class="badge-quiet" id="libStatus"></div>
-  <button class="icon-btn" id="uploadPdfBtn" style="width:100%; margin-bottom:16px;">📄 Studienheft-PDF hochladen</button>
-  <input type="file" id="pdfFileInput" accept="application/pdf" style="display:none;">
-  <div id="libraryList"></div>
-</div>
-
-<!-- ============ SCREEN: READER ============ -->
-<div class="screen" id="screenReader">
-  <button class="close-link" id="backToLibraryBtn" style="margin-bottom:10px;">← Zur Bibliothek</button>
-  <div class="heft-title">Aktuelles Heft</div>
-  <div class="heft-name" id="heftName">–</div>
-
-  <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
-  <div class="progress-label" id="progressLabel">Seite – / –</div>
-  <div style="display:flex; gap:8px; align-items:center; margin:-10px 0 16px 0;">
-    <input type="number" id="pageJumpInput" min="1" style="width:70px; text-align:center; padding:8px 6px;" placeholder="Seite">
-    <button class="icon-btn secondary" id="pageJumpBtn">Los</button>
-    <span class="badge-quiet" style="margin:0;">→ direkt springen</span>
-  </div>
-
-  <div class="mode-row">
-    <button class="mode-btn active" id="modeFull">Volle Session</button>
-    <button class="mode-btn" id="modeQuick">3-Minuten-Check</button>
-    <button class="mode-btn" id="modeEsa">ESA-Check</button>
-  </div>
-
-  <button class="icon-btn secondary" id="toolsBtn" style="width:100%; margin: -8px 0 16px 0;">📋 Überblick & Merkzettel</button>
-
-  <div id="quickArea" style="display:none;"></div>
-  <div id="esaArea" style="display:none;"></div>
-  <div id="pageArea"></div>
-
-  <div class="nav-row" id="navRow" style="display:none;">
-    <button class="nav-btn" id="prevBtn">← Zurück</button>
-    <button class="nav-btn" id="nextBtn">Weiter →</button>
-  </div>
-</div>
-
-<button class="fab" id="askFab" style="display:none;">🎙️ Frag deinen Lehrer</button>
-<button class="stop-fab" id="stopSpeakBtn" title="Vorlesen stoppen">⏹</button>
-
-<!-- ============ SHEET: SETTINGS ============ -->
-<div class="sheet-backdrop" id="settingsSheet" style="display:none;">
-  <div class="sheet">
-    <h2>Einstellungen</h2>
-    <div class="hint">Dein Anthropic-API-Key bleibt nur in DEINEM Browser (localStorage) — er wird bei jeder Anfrage direkt an api.anthropic.com geschickt, läuft nie über einen Server von mir. Key erstellen: console.anthropic.com → API Keys.</div>
-    <div class="field-label">Anthropic API-Key</div>
-    <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
-    <div class="field-label">Modell für Unterricht/Bewertung (hochwertig)</div>
-    <input type="text" id="modelMainInput" placeholder="claude-sonnet-5">
-    <div class="field-label">Modell für Heft-Einlesen (schnell/günstig)</div>
-    <input type="text" id="modelFastInput" placeholder="claude-haiku-4-5-20251001">
-    <div class="field-label">Sprechgeschwindigkeit (0,5 = langsam … 1,0 = normal)</div>
-    <input type="text" id="rateInput" placeholder="0.85">
-    <div class="hint">Verbrauch & Kosten siehst du in deiner Anthropic-Konsole (console.anthropic.com). Ändert sich mal ein Modellname, trag ihn hier einfach neu ein.</div>
-    <button class="icon-btn" id="saveSettingsBtn" style="width:100%; margin-top:10px;">Speichern</button>
-    <div class="close-row"><button class="close-link" id="closeSettingsBtn">Schließen</button></div>
-  </div>
-</div>
-
-<!-- ============ SHEET: TOOLS (Überblick & Merkzettel) ============ -->
-<div class="sheet-backdrop" id="toolsSheet" style="display:none;">
-  <div class="sheet">
-    <h2>Überblick & Merkzettel</h2>
-    <div id="toolsMenu">
-      <button class="icon-btn secondary" style="width:100%; margin-bottom:8px;" id="toolOverviewBtn">🗺️ Gesamtüberblick (ganzes Heft)</button>
-      <button class="icon-btn secondary" style="width:100%; margin-bottom:8px;" id="toolChapterBtn">📖 Seitenbereich zusammenfassen</button>
-      <button class="icon-btn secondary" style="width:100%; margin-bottom:8px;" id="toolEsaBtn">🎯 Was brauche ich für die ESA?</button>
-      <button class="icon-btn secondary" style="width:100%; margin-bottom:8px;" id="toolMerkzettelBtn">📝 Merkzettel erstellen</button>
+  <!-- HOME VIEW -->
+  <div id="homeView" class="view active">
+    <div class="header">
+      <p class="header-title">Wissensspeicher</p>
+      <div class="search-wrap" id="searchWrap">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#201D16" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="globalSearchInput" class="search-input" type="search" placeholder="In deinem Wissen suchen…" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="clear-btn" id="clearGlobalSearch">✕</button>
+      </div>
     </div>
-    <div id="toolsResult"></div>
-    <div class="close-row"><button class="close-link" id="closeToolsBtn">Schließen</button></div>
+    <div class="body-pad" id="homeBody"></div>
   </div>
-</div>
 
-<!-- ============ SHEET: ASK TEACHER ============ -->
-<div class="sheet-backdrop" id="askSheet" style="display:none;">
-  <div class="sheet">
-    <h2>Frag deinen Lehrer</h2>
-    <div class="hint" id="askHint">Antippen und reden – oder das Mikro auf deiner Tastatur benutzen.</div>
-    <button class="mic-btn" id="micBtn">🎙️ Antippen &amp; sprechen</button>
-    <div class="answer-row">
-      <input type="text" id="fallbackInput" placeholder="Frage… (Mikro-Taste der Tastatur nutzen)">
-      <button class="icon-btn" id="sendBtn">Fragen</button>
+  <!-- FILE VIEW -->
+  <div id="fileView" class="view">
+    <div class="file-view-header">
+      <div class="fv-top-row">
+        <button class="icon-btn" id="backBtn" aria-label="Zurück">‹</button>
+        <p class="fv-title" id="fvTitle"></p>
+        <div class="fv-actions">
+          <button class="icon-btn" id="exportBtn" aria-label="Exportieren" title="Exportieren">⭳</button>
+          <button class="icon-btn" id="deleteBtn" aria-label="Löschen" title="Löschen">🗑</button>
+        </div>
+      </div>
+      <div class="search-wrap" id="withinSearchWrap">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#201D16" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="withinSearchInput" class="search-input" type="search" placeholder="In dieser Datei suchen…" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="clear-btn" id="clearWithinSearch">✕</button>
+      </div>
+      <div class="match-nav" id="matchNav">
+        <button class="icon-btn" id="prevMatch" aria-label="Vorheriger Treffer">‹</button>
+        <span id="matchCount"></span>
+        <button class="icon-btn" id="nextMatch" aria-label="Nächster Treffer">›</button>
+      </div>
     </div>
-    <div id="answerArea"></div>
-    <div class="close-row"><button class="close-link" id="closeAskBtn">Schließen</button></div>
+    <div class="file-meta-line" id="fvMeta"></div>
+    <div class="file-content" id="fvContent"></div>
   </div>
-</div>
+
+  <button class="fab" id="addFab" aria-label="Datei hinzufügen">+</button>
+
+  <!-- ADD FILE SHEET -->
+  <div class="overlay" id="addOverlay">
+    <div class="sheet" id="addSheet">
+      <div class="sheet-header">
+        <h2>Neue Wissensdatei</h2>
+        <button class="icon-btn" id="closeSheet" style="color:var(--text)" aria-label="Schließen">✕</button>
+      </div>
+      <label class="field-label" for="fileTitleInput">Titel</label>
+      <input id="fileTitleInput" class="text-input" type="text" maxlength="120" placeholder="z. B. Haftungsrecht Grundlagen">
+
+      <div class="tabs">
+        <button class="tab active" id="tabUploadBtn" data-tab="upload">Datei hochladen</button>
+        <button class="tab" id="tabPasteBtn" data-tab="paste">Text einfügen</button>
+      </div>
+
+      <div class="tab-panel active" id="panelUpload">
+        <div class="file-drop">
+          <input type="file" id="fileInput" accept=".txt,text/plain">
+        </div>
+        <p class="hint" id="fileInfo"></p>
+      </div>
+
+      <div class="tab-panel" id="panelPaste">
+        <textarea id="pasteInput" class="text-input" placeholder="Text hier einfügen…"></textarea>
+      </div>
+
+      <button class="btn-primary" id="saveFileBtn" disabled>Speichern</button>
+      <p class="hint hidden" id="saveProgress"></p>
+    </div>
+  </div>
+
+  <!-- CONFIRM DIALOG -->
+  <div class="overlay" id="confirmOverlay"></div>
+  <div class="confirm-box" id="confirmBox">
+    <p id="confirmText"></p>
+    <div class="confirm-actions">
+      <button class="btn-secondary" id="confirmCancel">Abbrechen</button>
+      <button class="btn-danger" id="confirmOk">Löschen</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
 
 <script>
 (function(){
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  'use strict';
 
-  const $ = id => document.getElementById(id);
+  /* ================= IndexedDB storage ================= */
+  const DB_NAME = 'wissensspeicher_db';
+  const DB_VERSION = 1;
+  const STORE = 'files';
+  let idbPromise = null;
 
-  // ---------------- IndexedDB ----------------
-  let dbp = null;
-  function openDB() {
-    if (dbp) return dbp;
-    dbp = new Promise((resolve, reject) => {
-      const req = indexedDB.open('lehrer-db', 1);
-      req.onupgradeneeded = () => { req.result.createObjectStore('hefte', { keyPath: 'id' }); };
+  function openDatabase(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE)){
+          db.createObjectStore(STORE, {keyPath: 'id'});
+        }
+      };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-    return dbp;
   }
-  async function idbGet(id) {
-    const db = await openDB();
-    return new Promise((res, rej) => {
-      const tx = db.transaction('hefte', 'readonly').objectStore('hefte').get(id);
-      tx.onsuccess = () => res(tx.result || null);
-      tx.onerror = () => rej(tx.error);
+  function getIdb(){ if(!idbPromise) idbPromise = openDatabase(); return idbPromise; }
+
+  async function idbGetAll(){
+    const db = await getIdb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
     });
   }
-  async function idbPut(obj) {
-    const db = await openDB();
-    return new Promise((res, rej) => {
-      const tx = db.transaction('hefte', 'readwrite').objectStore('hefte').put(obj);
-      tx.onsuccess = () => res();
-      tx.onerror = () => rej(tx.error);
+  async function idbPut(record){
+    const db = await getIdb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(record);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   }
-  async function idbAll() {
-    const db = await openDB();
-    return new Promise((res, rej) => {
-      const items = [];
-      const req = db.transaction('hefte', 'readonly').objectStore('hefte').openCursor();
-      req.onsuccess = (e) => {
-        const cur = e.target.result;
-        if (cur) { items.push(cur.value); cur.continue(); } else { res(items); }
-      };
-      req.onerror = () => rej(req.error);
-    });
-  }
-  async function idbDelete(id) {
-    const db = await openDB();
-    return new Promise((res, rej) => {
-      const tx = db.transaction('hefte', 'readwrite').objectStore('hefte').delete(id);
-      tx.onsuccess = () => res();
-      tx.onerror = () => rej(tx.error);
+  async function idbDelete(id){
+    const db = await getIdb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   }
 
-  // ---------------- Settings ----------------
-  function getSettings() {
-    return {
-      apiKey: localStorage.getItem('lehrer_apiKey') || '',
-      modelMain: localStorage.getItem('lehrer_modelMain') || 'claude-sonnet-5',
-      modelFast: localStorage.getItem('lehrer_modelFast') || 'claude-haiku-4-5-20251001',
-      rate: parseFloat(localStorage.getItem('lehrer_rate')) || 0.85
-    };
-  }
-  function saveSettings(s) {
-    localStorage.setItem('lehrer_apiKey', s.apiKey);
-    localStorage.setItem('lehrer_modelMain', s.modelMain);
-    localStorage.setItem('lehrer_modelFast', s.modelFast);
-    localStorage.setItem('lehrer_rate', s.rate);
-  }
+  /* ================= State ================= */
+  let files = [];
+  let currentFileId = null;
+  let withinQuery = '';
+  let currentMatches = [];
+  let currentMatchIdx = 0;
+  let downloadsCap = null;
+  let pendingUploadText = '';
+  let activeTab = 'upload';
 
-  // ---------------- Anthropic direct call ----------------
-  async function callClaude(promptText, { model, images, maxTokens } = {}) {
-    const s = getSettings();
-    if (!s.apiKey) { const e = new Error('no_api_key'); e.code = 'no_api_key'; throw e; }
-    const content = [];
-    if (images) {
-      const arr = Array.isArray(images) ? images : [images];
-      for (const b64 of arr) {
-        content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } });
-      }
-    }
-    content.push({ type: 'text', text: promptText });
-    let res;
-    try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': s.apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: model || s.modelMain,
-          max_tokens: maxTokens || 1200,
-          messages: [{ role: 'user', content }]
-        })
-      });
-    } catch (netErr) {
-      const e = new Error('network'); e.code = 'network'; throw e;
-    }
-    if (!res.ok) {
-      let msg = '';
-      try { msg = (await res.json()).error?.message || ''; } catch (e2) {}
-      const e = new Error('api_' + res.status); e.code = 'api_' + res.status; e.detail = msg; throw e;
-    }
-    const data = await res.json();
-    return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-  }
-  function extractJson(text) {
-    const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const start = cleaned.indexOf('{') === -1 ? cleaned.indexOf('[') : Math.min(...[cleaned.indexOf('{'), cleaned.indexOf('[')].filter(i => i >= 0));
-    try { return JSON.parse(cleaned); } catch (e) {
-      // Versuche, nur den JSON-Teil herauszuschneiden
-      const m = cleaned.match(/[\{\[][\s\S]*[\}\]]/);
-      if (m) { try { return JSON.parse(m[0]); } catch (e2) {} }
-      throw e;
-    }
-  }
-  function feedbackForError(e) {
-    if (!e || !e.code) return 'Da ist etwas schiefgelaufen. Versuch es gleich noch mal.';
-    if (e.code === 'no_api_key') return 'Kein API-Key hinterlegt. Trag ihn unter ⚙️ Einstellungen ein.';
-    if (e.code === 'network') return 'Keine Verbindung zur API. Prüfe deine Internetverbindung.';
-    if (e.code === 'api_401') return 'API-Key wurde abgelehnt (401). Prüfe ihn unter ⚙️ Einstellungen.';
-    if (e.code === 'api_429') return 'Gerade zu viele Anfragen (Rate-Limit). Kurz warten und nochmal.';
-    return 'Fehler: ' + e.code + (e.detail ? ' – ' + e.detail : '');
-  }
+  /* ================= DOM refs ================= */
+  const homeView = document.getElementById('homeView');
+  const fileView = document.getElementById('fileView');
+  const homeBody = document.getElementById('homeBody');
+  const globalSearchInput = document.getElementById('globalSearchInput');
+  const searchWrap = document.getElementById('searchWrap');
+  const clearGlobalSearch = document.getElementById('clearGlobalSearch');
 
-  // ---------------- TTS ----------------
-  let cachedVoices = [];
-  let currentSpeakToken = 0;
-  function loadVoices() {
-    return new Promise((resolve) => {
-      if (!('speechSynthesis' in window)) { resolve([]); return; }
-      let v = window.speechSynthesis.getVoices();
-      if (v && v.length) { resolve(v); return; }
-      let resolved = false;
-      window.speechSynthesis.onvoiceschanged = () => { if (!resolved) { resolved = true; resolve(window.speechSynthesis.getVoices()); } };
-      setTimeout(() => { if (!resolved) { resolved = true; resolve(window.speechSynthesis.getVoices()); } }, 1500);
-    });
+  const fvTitle = document.getElementById('fvTitle');
+  const fvMeta = document.getElementById('fvMeta');
+  const fvContent = document.getElementById('fvContent');
+  const withinSearchInput = document.getElementById('withinSearchInput');
+  const withinSearchWrap = document.getElementById('withinSearchWrap');
+  const clearWithinSearch = document.getElementById('clearWithinSearch');
+  const matchNav = document.getElementById('matchNav');
+  const matchCount = document.getElementById('matchCount');
+
+  const addOverlay = document.getElementById('addOverlay');
+  const fileTitleInput = document.getElementById('fileTitleInput');
+  const fileInput = document.getElementById('fileInput');
+  const fileInfo = document.getElementById('fileInfo');
+  const pasteInput = document.getElementById('pasteInput');
+  const saveFileBtn = document.getElementById('saveFileBtn');
+  const saveProgress = document.getElementById('saveProgress');
+
+  const confirmOverlay = document.getElementById('confirmOverlay');
+  const confirmBox = document.getElementById('confirmBox');
+  const confirmText = document.getElementById('confirmText');
+  const toastEl = document.getElementById('toast');
+
+  /* ================= Helpers ================= */
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
-  function pickVoiceFor(lang) {
-    if (!cachedVoices.length) return null;
-    const exact = cachedVoices.find(v => v.lang && v.lang.toLowerCase() === lang.toLowerCase());
-    if (exact) return exact;
-    const prefix = lang.split('-')[0];
-    return cachedVoices.find(v => v.lang && v.lang.toLowerCase().startsWith(prefix)) || null;
+  function wordCount(text){
+    const m = text.trim().match(/\S+/g);
+    return m ? m.length : 0;
   }
-  function pickVoiceLang(text) {
-    const cyr = (text.match(/[\u0400-\u04FF]/g) || []).length;
-    const lat = (text.match(/[A-Za-zÄÖÜäöüß]/g) || []).length;
-    return cyr > lat ? 'ru-RU' : 'de-DE';
+  function formatDate(ts){
+    return new Date(ts).toLocaleDateString('de-DE', {day:'2-digit', month:'long', year:'numeric'});
   }
-  function splitIntoSegments(text) { return text.split(/\n+/).map(s => s.trim()).filter(Boolean); }
-  function speakSequential(segments) {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const myToken = ++currentSpeakToken;
+  function findMatchIndices(text, query){
+    if(!query) return [];
+    const lc = text.toLowerCase();
+    const q = query.toLowerCase();
+    if(!q) return [];
+    const res = [];
     let i = 0;
-    function next() {
-      if (myToken !== currentSpeakToken) return;
-      if (i >= segments.length) return;
-      const seg = segments[i];
-      const lang = pickVoiceLang(seg);
-      const u = new SpeechSynthesisUtterance(seg);
-      u.lang = lang;
-      const v = pickVoiceFor(lang);
-      if (v) u.voice = v;
-      u.rate = getSettings().rate;
-      u.onend = () => { if (myToken === currentSpeakToken) { i++; next(); } };
-      u.onerror = () => { if (myToken === currentSpeakToken) { i++; next(); } };
-      window.speechSynthesis.speak(u);
+    while(true){
+      const idx = lc.indexOf(q, i);
+      if(idx === -1) break;
+      res.push(idx);
+      i = idx + q.length;
     }
-    next();
+    return res;
   }
-  function stopSpeaking() { currentSpeakToken++; if ('speechSynthesis' in window) window.speechSynthesis.cancel(); }
-
-  // ---------------- State ----------------
-  let currentHeft = null; // volles Heft-Objekt aus IndexedDB
-  let currentPage = 1;
-  let attemptCounts = {};
-  let recog = null;
-
-  // ---------------- Screens ----------------
-  function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    $(id).classList.add('active');
-    $('askFab').style.display = (id === 'screenReader') ? 'flex' : 'none';
+  function buildSnippet(text, matchIndex, queryLen, context){
+    context = context || 90;
+    let start = Math.max(0, matchIndex - context);
+    let end = Math.min(text.length, matchIndex + queryLen + context);
+    while (start > 0 && !/\s/.test(text[start])) start--;
+    while (end < text.length && !/\s/.test(text[end])) end++;
+    const prefix = start > 0 ? '…' : '';
+    const suffix = end < text.length ? '…' : '';
+    return {
+      before: text.slice(start, matchIndex),
+      match: text.slice(matchIndex, matchIndex + queryLen),
+      after: text.slice(matchIndex + queryLen, end),
+      prefix, suffix
+    };
   }
-
-  // ---------------- Library ----------------
-  async function renderLibrary() {
-    showScreen('screenLibrary');
-    $('dayChip').style.display = 'none';
-    const list = $('libraryList');
-    list.innerHTML = '<div class="thinking">Lade Bibliothek…</div>';
-    const items = await idbAll();
-    if (!items.length) { list.innerHTML = '<div class="badge-quiet">Noch kein Heft hochgeladen.</div>'; return; }
-    items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    list.innerHTML = '';
-    items.forEach(h => {
-      const row = document.createElement('div');
-      row.className = 'lib-item';
-      const left = document.createElement('div');
-      left.innerHTML = '<div style="font-weight:600;">' + (h.title || h.id) + '</div><div class="meta">' + (h.subject || '') + ' · ' + h.pages.length + ' Seiten · Tag ' + (h.dayCounter || 1) + '</div>';
-      left.onclick = () => openHeft(h.id);
-      const del = document.createElement('button');
-      del.className = 'del'; del.textContent = '🗑️';
-      del.onclick = async (ev) => { ev.stopPropagation(); if (confirm('„' + h.title + '“ wirklich löschen?')) { await idbDelete(h.id); renderLibrary(); } };
-      row.appendChild(left); row.appendChild(del);
-      list.appendChild(row);
-    });
+  function snippetHtml(text, matchIndex, queryLen){
+    const s = buildSnippet(text, matchIndex, queryLen);
+    return s.prefix + escapeHtml(s.before) + '<mark>' + escapeHtml(s.match) + '</mark>' + escapeHtml(s.after) + s.suffix;
   }
-
-  async function openHeft(id) {
-    currentHeft = await idbGet(id);
-    if (!currentHeft) return;
-    currentPage = currentHeft.currentPage || 1;
-    attemptCounts = {};
-    showScreen('screenReader');
-    $('dayChip').style.display = 'inline-block';
-    $('dayChip').textContent = 'Tag ' + (currentHeft.dayCounter || 1);
-    $('heftName').textContent = (currentHeft.subject ? currentHeft.subject + ' · ' : '') + currentHeft.title;
-    $('modeFull').classList.add('active'); $('modeQuick').classList.remove('active'); $('modeEsa').classList.remove('active');
-    $('quickArea').style.display = 'none'; $('esaArea').style.display = 'none'; $('pageArea').style.display = 'block';
-    renderPage();
-  }
-
-  async function saveHeftState() {
-    if (!currentHeft) return;
-    currentHeft.currentPage = currentPage;
-    currentHeft.updatedAt = Date.now();
-    await idbPut(currentHeft);
-  }
-
-  // ---------------- PDF Import ----------------
-  async function importPdf(file) {
-    const subject = prompt('Fach? (z. B. Russisch, Mathe)', '') || 'Unbekannt';
-    const title = prompt('Titel des Hefts?', file.name.replace(/\.pdf$/i, '')) || file.name;
-    $('libStatus').textContent = 'Lese PDF …';
-    const buf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-    const numPages = pdf.numPages;
-    const rawPages = [];
-    for (let i = 1; i <= numPages; i++) {
-      $('libStatus').textContent = 'Extrahiere Text: Seite ' + i + ' / ' + numPages + ' …';
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const text = content.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
-      rawPages.push(text);
-    }
-    const heftId = 'heft-' + Date.now().toString(36);
-    const pages = [];
-    let failed = 0;
-    for (let i = 0; i < rawPages.length; i++) {
-      $('libStatus').textContent = 'Sortiere Inhalt (KI): Seite ' + (i + 1) + ' / ' + rawPages.length + ' …';
-      const pageText = rawPages[i];
-      if (!pageText || pageText.length < 5) { pages.push({ blocks: [] }); continue; }
-      const prompt = 'Das ist der reine, exakt extrahierte Text von Seite ' + (i + 1) + ' eines Lern-Studienhefts (Fach: ' + subject + '). WICHTIG: Übernimm den Inhalt VOLLSTÄNDIG und WORTGETREU, fasse NICHT zusammen und lasse NICHTS weg (auch keine Aufgabennummern, Vokabeln, Formeln). Deine einzige Aufgabe ist es, den Text sinnvoll in Blöcke zu gliedern und zu klassifizieren. WICHTIG für Vokabeltabellen und Grammatik-/Regelblöcke: eine zusammenhängende Vokabelliste/-tabelle gehört komplett in EINEN einzigen Block (nicht auf mehrere Blöcke aufteilen), ebenso ein zusammenhängender Grammatik-/Regelabschnitt.\n\nText:\n"""' + pageText + '"""\n\nGib NUR ein JSON-Objekt zurück: {"blocks": [...]}. Jeder Block: {"type": "pflicht"|"verstehen"|"kontext", "kind": "text"|"aufgabe", "text": "...", "loesung": "..."}. "pflicht" = Kernaussage/Merksatz/Definition/Vokabel/Aufgabenstellung, "verstehen" = wichtig fürs Verständnis, "kontext" = Hintergrund/Beispiel. "loesung" nur bei kind="aufgabe" befüllen, wenn auf der Seite erkennbar, sonst weglassen. Reiner Fließtext-Erklärtext darf in 1-2 Blöcken zusammengefasst werden, aber OHNE Informationsverlust. Antworte NUR mit dem JSON-Objekt.';
-      try {
-        const raw = await callClaude(prompt, { model: getSettings().modelFast, maxTokens: 2000 });
-        const parsed = extractJson(raw);
-        pages.push({ blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [] });
-      } catch (e) {
-        failed++;
-        pages.push({ blocks: [{ type: 'kontext', kind: 'text', text: pageText }] }); // Fallback: Rohtext ohne KI-Gliederung
-      }
-    }
-    const heft = { id: heftId, subject, title, pages, currentPage: 1, dayCounter: 1, sessionsCompleted: 0, streak: 0, createdAt: Date.now(), updatedAt: Date.now() };
-    await idbPut(heft);
-    $('libStatus').textContent = failed ? ('Fertig — ' + failed + ' Seite(n) ohne KI-Gliederung (Rohtext übernommen).') : 'Fertig!';
-    renderLibrary();
-  }
-
-  // ---------------- Reader ----------------
-  function tagLabel(type) {
-    if (type === 'pflicht') return { cls: 'tag-pflicht', label: 'Pflicht' };
-    if (type === 'verstehen') return { cls: 'tag-verstehen', label: 'Verstehen' };
-    return { cls: 'tag-kontext', label: 'Kontext' };
-  }
-
-  function renderPage() {
-    const page = currentHeft.pages[currentPage - 1] || { blocks: [] };
-    const total = currentHeft.pages.length;
-    $('navRow').style.display = 'flex';
-    $('prevBtn').disabled = currentPage <= 1;
-    $('nextBtn').disabled = currentPage >= total;
-    $('progressFill').style.width = Math.round((currentPage / total) * 100) + '%';
-    $('progressLabel').textContent = 'Seite ' + currentPage + ' / ' + total;
-    $('pageJumpInput').max = total;
-    $('pageJumpInput').placeholder = 'z.B. ' + total;
-
-    const area = $('pageArea');
-    area.innerHTML = '';
-    const readAllBtn = document.createElement('button');
-    readAllBtn.className = 'icon-btn secondary';
-    readAllBtn.style.marginBottom = '10px';
-    readAllBtn.textContent = '🔊 Ganze Seite vorlesen';
-    readAllBtn.onclick = () => speakSequential(splitIntoSegments((page.blocks || []).map(b => b.text).join('\n\n')));
-    area.appendChild(readAllBtn);
-
-    (page.blocks || []).forEach((block, idx) => {
-      const card = document.createElement('div');
-      card.className = 'card';
-      const tag = tagLabel(block.type);
-      const tagEl = document.createElement('div');
-      tagEl.className = 'block-tag ' + tag.cls;
-      tagEl.textContent = tag.label;
-      card.appendChild(tagEl);
-
-      const textEl = document.createElement('div');
-      textEl.className = 'block-text';
-      textEl.textContent = block.text;
-      card.appendChild(textEl);
-
-      const speakBtn = document.createElement('button');
-      speakBtn.className = 'icon-btn secondary';
-      speakBtn.style.marginTop = '8px';
-      speakBtn.style.marginRight = '8px';
-      speakBtn.textContent = '🔊 Vorlesen';
-      speakBtn.onclick = () => speakSequential(splitIntoSegments(block.text));
-      card.appendChild(speakBtn);
-
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'icon-btn secondary';
-      copyBtn.style.marginTop = '8px';
-      copyBtn.textContent = '📋 Kopieren';
-      copyBtn.onclick = async () => {
-        try {
-          await navigator.clipboard.writeText(block.text);
-          copyBtn.textContent = '✅ Kopiert';
-        } catch (e) {
-          const ta = document.createElement('textarea');
-          ta.value = block.text; document.body.appendChild(ta); ta.select();
-          try { document.execCommand('copy'); copyBtn.textContent = '✅ Kopiert'; } catch (e2) { copyBtn.textContent = '❌ Fehler'; }
-          document.body.removeChild(ta);
-        }
-        setTimeout(() => { copyBtn.textContent = '📋 Kopieren'; }, 1500);
-      };
-      card.appendChild(copyBtn);
-
-      if (block.kind === 'aufgabe') {
-        const box = document.createElement('div');
-        box.className = 'aufgabe-box';
-        const row = document.createElement('div'); row.className = 'answer-row';
-        const input = document.createElement('input'); input.type = 'text'; input.placeholder = 'Deine Antwort (Mikro-Taste der Tastatur nutzen)';
-        const photoInput = document.createElement('input'); photoInput.type = 'file'; photoInput.accept = 'image/*'; photoInput.capture = 'environment'; photoInput.style.display = 'none';
-        const photoBtn = document.createElement('button'); photoBtn.className = 'icon-btn secondary'; photoBtn.textContent = '📷'; photoBtn.title = 'Antwort als Foto';
-        const btn = document.createElement('button'); btn.className = 'icon-btn'; btn.textContent = 'Prüfen';
-        const fb = document.createElement('div'); fb.className = 'feedback-box'; fb.style.display = 'none';
-        const photoStatus = document.createElement('div'); photoStatus.style.cssText = 'font-size:12.5px; color:var(--muted); margin-top:6px; display:none;';
-        let attachedPhoto64 = null;
-
-        photoBtn.onclick = () => photoInput.click();
-        photoInput.onchange = (e) => {
-          const f = e.target.files && e.target.files[0];
-          if (f) {
-            const reader = new FileReader();
-            reader.onload = () => { attachedPhoto64 = reader.result.split(',')[1]; photoStatus.style.display = 'block'; photoStatus.innerHTML = '📷 Foto bereit — <a href="#" style="color:var(--accent);">entfernen</a>'; photoStatus.querySelector('a').onclick = (ev) => { ev.preventDefault(); attachedPhoto64 = null; photoStatus.style.display = 'none'; }; };
-            reader.readAsDataURL(f);
-          }
-          e.target.value = '';
-        };
-
-        btn.onclick = async () => {
-          const val = input.value.trim();
-          if (!val && !attachedPhoto64) return;
-          const key = currentHeft.id + '-' + currentPage + '-' + idx;
-          attemptCounts[key] = (attemptCounts[key] || 0) + 1;
-          btn.disabled = true; fb.style.display = 'block'; fb.innerHTML = '<span class="thinking">Dein Lehrer überlegt…</span>';
-          try {
-            let prompt = 'Du bist ein geduldiger, ruhiger KI-Lehrer, Fach ' + (currentHeft.subject || '') + '.\nAufgabe: "' + block.text + '"\nMusterlösung (NICHT direkt verraten): "' + (block.loesung || '') + '"\n';
-            if (attachedPhoto64) { prompt += 'Der Lernende hat seine (evtl. handschriftliche) Antwort als Foto eingereicht — lies sie sorgfältig.\n'; if (val) prompt += 'Zusätzlicher Kommentar: "' + val + '"\n'; }
-            else { prompt += 'Antwort: "' + val + '"\n'; }
-            prompt += '\nBewerte freundlich, ohne Druck, aber SUBSTANZIELL — kein "schau nochmal drüber" ohne Inhalt. Struktur: 1) Kurz sagen, was schon richtig ist (falls etwas). 2) Konkret benennen, was falsch ist. 3) Die KORRIGIERTE Fassung der Antwort/des Satzes explizit hinschreiben. 4) In 1-2 Sätzen erklären, WARUM (welche Regel/welcher Fehler). Der Lernende soll aus der Antwort direkt etwas lernen, nicht raten müssen. Antworte auf Deutsch, kompakt (max. 5 Sätze).';
-            const res = await callClaude(prompt, { images: attachedPhoto64 || undefined });
-            fb.textContent = res;
-            speakSequential(splitIntoSegments(res));
-          } catch (e) { fb.textContent = feedbackForError(e); }
-          finally { btn.disabled = false; }
-        };
-
-        row.appendChild(input); row.appendChild(photoBtn); row.appendChild(btn);
-        box.appendChild(row); box.appendChild(photoInput); box.appendChild(photoStatus); box.appendChild(fb);
-        card.appendChild(box);
-      }
-      area.appendChild(card);
-    });
-  }
-
-  async function goPage(delta) {
-    const total = currentHeft.pages.length;
-    const next = currentPage + delta;
-    if (next < 1 || next > total) return;
-    currentPage = next;
-    await saveHeftState();
-    renderPage();
-  }
-
-  async function jumpToPage(target) {
-    const total = currentHeft.pages.length;
-    const n = parseInt(target, 10);
-    if (!n || n < 1 || n > total) { $('pageJumpInput').value = ''; $('pageJumpInput').placeholder = '1–' + total + '?'; return; }
-    currentPage = n;
-    await saveHeftState();
-    renderPage();
-    $('pageJumpInput').value = '';
-  }
-
-  async function runQuickCheck() {
-    $('quickArea').style.display = 'block'; $('pageArea').style.display = 'none'; $('esaArea').style.display = 'none'; $('navRow').style.display = 'none';
-    const area = $('quickArea');
-    area.innerHTML = '<div class="card"><span class="thinking">Dein Lehrer stellt zwei kurze Fragen…</span></div>';
-    const page = currentHeft.pages[currentPage - 1] || { blocks: [] };
-    const pflichtText = (page.blocks || []).filter(b => b.type === 'pflicht').map(b => b.text).join('\n\n');
-    try {
-      const prompt = 'Erstelle einen 3-Minuten-Schnellcheck zu diesem Pflichtstoff (Fach ' + (currentHeft.subject || '') + '):\n\n' + (pflichtText || '(kein Pflichtstoff auf dieser Seite)') + '\n\nStelle genau 2 kurze Verständnisfragen, nummeriert, ohne Erklärung drumherum. Ruhiger Ton.';
-      const res = await callClaude(prompt, { model: getSettings().modelFast });
-      area.innerHTML = '<div class="card"><div class="block-text">' + res.replace(/\n/g, '<br>') + '</div><div style="margin-top:10px;"><button class="icon-btn secondary" id="quickSpeak">🔊 Vorlesen</button></div></div>';
-      $('quickSpeak').onclick = () => speakSequential(splitIntoSegments(res));
-    } catch (e) { area.innerHTML = '<div class="card">' + feedbackForError(e) + '</div>'; }
-  }
-
-  // ---------------- Überblick & Merkzettel ----------------
-  function collectHeftText(fromPage, toPage, types) {
-    const from = fromPage || 1;
-    const to = Math.min(toPage || currentHeft.pages.length, currentHeft.pages.length);
+  function highlightedContentHtml(text, query){
+    if(!query) return escapeHtml(text);
+    const matches = findMatchIndices(text, query);
+    if(!matches.length) return escapeHtml(text);
     const parts = [];
-    for (let p = from; p <= to; p++) {
-      const page = currentHeft.pages[p - 1];
-      (page.blocks || []).forEach(b => {
-        if (!types || types.includes(b.type)) {
-          let line = '[S.' + p + '] ' + b.text;
-          if (b.kind === 'aufgabe' && b.loesung) line += '\n(Lösung: ' + b.loesung + ')';
-          parts.push(line);
-        }
-      });
-    }
-    return parts.join('\n\n');
-  }
-
-  function openToolsSheet() { $('toolsSheet').style.display = 'flex'; $('toolsMenu').style.display = 'block'; $('toolsResult').innerHTML = ''; }
-  function closeToolsSheet() { $('toolsSheet').style.display = 'none'; stopSpeaking(); }
-  function toolsBack() { $('toolsMenu').style.display = 'block'; $('toolsResult').innerHTML = ''; }
-  function renderToolResult(html) {
-    $('toolsMenu').style.display = 'none';
-    $('toolsResult').innerHTML = '<button class="close-link" id="toolsBackBtn" style="margin-bottom:10px;">← Andere Ansicht</button>' + html;
-    $('toolsBackBtn').onclick = toolsBack;
-  }
-
-  function showOverviewResult(text, cacheKey, fromPage, toPage, label) {
-    const html = '<div class="card"><div class="block-text">' + text.replace(/\n/g, '<br>') + '</div>' +
-      '<div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">' +
-      '<button class="icon-btn secondary" id="ovSpeak">🔊 Vorlesen</button>' +
-      '<button class="icon-btn secondary" id="ovCopy">📋 Kopieren</button>' +
-      '<button class="icon-btn secondary" id="ovRegen">🔄 Neu erstellen</button>' +
-      '</div></div>';
-    renderToolResult(html);
-    $('ovSpeak').onclick = () => speakSequential(splitIntoSegments(text));
-    $('ovCopy').onclick = async () => { try { await navigator.clipboard.writeText(text); } catch (e) {} $('ovCopy').textContent = '✅ Kopiert'; setTimeout(() => { $('ovCopy').textContent = '📋 Kopieren'; }, 1200); };
-    $('ovRegen').onclick = async () => { delete currentHeft.cache[cacheKey]; await idbPut(currentHeft); runOverview(fromPage, toPage, label, cacheKey); };
-  }
-
-  async function runOverview(fromPage, toPage, label, cacheKey) {
-    currentHeft.cache = currentHeft.cache || {};
-    if (currentHeft.cache[cacheKey]) { showOverviewResult(currentHeft.cache[cacheKey], cacheKey, fromPage, toPage, label); return; }
-    renderToolResult('<div class="card"><span class="thinking">Dein Lehrer verschafft sich einen Überblick…</span></div>');
-    const text = collectHeftText(fromPage, toPage, ['pflicht', 'verstehen']);
-    const prompt = 'Du bist ein Lehrer. Hier ist der Inhalt ' + label + ' eines Studienhefts (Fach ' + (currentHeft.subject || '') + '):\n\n' + text + '\n\nSchreibe einen kompakten Überblick (max. 8 Sätze) für den WIEDEREINSTIEG: worum geht es insgesamt, welche Hauptthemen werden behandelt, roter Faden. Orientierung geben, keine Detailprüfung. Auf Deutsch.';
-    try {
-      const res = await callClaude(prompt, { maxTokens: 700 });
-      currentHeft.cache[cacheKey] = res;
-      await idbPut(currentHeft);
-      showOverviewResult(res, cacheKey, fromPage, toPage, label);
-    } catch (e) { renderToolResult('<div class="card">' + feedbackForError(e) + '</div>'); }
-  }
-
-  function toolChapterPrompt() {
-    const html = '<div class="card"><div class="block-text" style="margin-bottom:10px;">Welcher Seitenbereich?</div>' +
-      '<div style="display:flex; gap:8px; align-items:center;">' +
-      '<input type="number" id="chFrom" min="1" max="' + currentHeft.pages.length + '" placeholder="von" style="width:70px;">' +
-      '<input type="number" id="chTo" min="1" max="' + currentHeft.pages.length + '" placeholder="bis" style="width:70px;">' +
-      '<button class="icon-btn" id="chGoBtn">Los</button>' +
-      '</div></div>';
-    renderToolResult(html);
-    $('chGoBtn').onclick = () => {
-      const f = parseInt($('chFrom').value, 10) || 1;
-      const t = parseInt($('chTo').value, 10) || currentHeft.pages.length;
-      runOverview(f, t, 'von Seite ' + f + ' bis ' + t, 'range_' + f + '_' + t);
-    };
-  }
-
-  async function runEsaFocus() {
-    currentHeft.cache = currentHeft.cache || {};
-    if (currentHeft.cache.esaFocus) { showOverviewResult(currentHeft.cache.esaFocus, 'esaFocus', 1, currentHeft.pages.length, 'des gesamten Hefts'); return; }
-    renderToolResult('<div class="card"><span class="thinking">Dein Lehrer sichtet den Stoff…</span></div>');
-    const text = collectHeftText(1, currentHeft.pages.length, ['pflicht']);
-    const prompt = 'Hier ist der Pflichtstoff eines Studienhefts (Fach ' + (currentHeft.subject || '') + '):\n\n' + text + '\n\nListe konkret auf, was davon für die Einsendeaufgabe (ESA) vermutlich wichtig ist: Kernregeln, Definitionen, Vokabeln, Aufgabentypen, die typischerweise abgefragt/angewendet werden. Als klare, kurze Liste (max. 10 Punkte), auf Deutsch.';
-    try {
-      const res = await callClaude(prompt, { maxTokens: 800 });
-      currentHeft.cache.esaFocus = res;
-      await idbPut(currentHeft);
-      showOverviewResult(res, 'esaFocus', 1, currentHeft.pages.length, 'des gesamten Hefts');
-    } catch (e) { renderToolResult('<div class="card">' + feedbackForError(e) + '</div>'); }
-  }
-
-  function showMerkzettelResult(items) {
-    let html = '<div style="margin-bottom:10px; display:flex; gap:8px;"><button class="icon-btn secondary" id="mzCopyAll">📋 Alles kopieren</button><button class="icon-btn secondary" id="mzRegen">🔄 Neu erstellen</button></div>';
-    items.forEach(it => {
-      html += '<div class="card"><div style="font-weight:700; margin-bottom:6px;">' + (it.thema || '') + '</div>' +
-        '<div style="font-style:italic; border-left:3px solid var(--accent); padding-left:10px; margin-bottom:8px; color:var(--muted);">' + (it.zitat || '') + '</div>' +
-        '<div class="block-text">' + (it.erklaerung || '') + '</div></div>';
+    let last = 0;
+    matches.forEach((m, i) => {
+      parts.push(escapeHtml(text.slice(last, m)));
+      parts.push('<mark class="match" id="match-' + i + '">' + escapeHtml(text.slice(m, m + query.length)) + '</mark>');
+      last = m + query.length;
     });
-    renderToolResult(html);
-    const fullText = items.map(it => (it.thema || '') + '\n„' + (it.zitat || '') + '"\n' + (it.erklaerung || '')).join('\n\n');
-    $('mzCopyAll').onclick = async () => { try { await navigator.clipboard.writeText(fullText); } catch (e) {} $('mzCopyAll').textContent = '✅ Kopiert'; setTimeout(() => { $('mzCopyAll').textContent = '📋 Alles kopieren'; }, 1200); };
-    $('mzRegen').onclick = async () => { delete currentHeft.cache.merkzettel; await idbPut(currentHeft); runMerkzettel(); };
+    parts.push(escapeHtml(text.slice(last)));
+    return parts.join('');
   }
-
-  async function runMerkzettel() {
-    currentHeft.cache = currentHeft.cache || {};
-    if (currentHeft.cache.merkzettel) { showMerkzettelResult(currentHeft.cache.merkzettel); return; }
-    renderToolResult('<div class="card"><span class="thinking">Dein Lehrer stellt den Merkzettel zusammen…</span></div>');
-    const text = collectHeftText(1, currentHeft.pages.length, ['pflicht', 'verstehen']);
-    const prompt = 'Erstelle einen Merkzettel aus folgendem Heft-Inhalt (Fach ' + (currentHeft.subject || '') + '). Für jedes wichtige Thema (Regel, Definition, Vokabelgruppe, Formel, Merksatz): 1) ein DIREKTES, wortgetreues Zitat aus dem Text unten (nicht paraphrasieren!), 2) eine kurze eigene Erklärung in einfachen Worten.\n\nText:\n' + text + '\n\nGib NUR JSON zurück: {"merkzettel":[{"thema":"...","zitat":"...","erklaerung":"..."}]}. 8 bis 15 Einträge, auf Deutsch.';
-    try {
-      const raw = await callClaude(prompt, { maxTokens: 3000 });
-      const parsed = extractJson(raw);
-      const items = Array.isArray(parsed.merkzettel) ? parsed.merkzettel : [];
-      currentHeft.cache.merkzettel = items;
-      await idbPut(currentHeft);
-      showMerkzettelResult(items);
-    } catch (e) { renderToolResult('<div class="card">' + feedbackForError(e) + '</div>'); }
+  let toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
   }
-
-  // ---------------- ESA-Check ----------------
-  let esaFiles = [];
-  function renderEsaCheck() {
-    $('esaArea').style.display = 'block'; $('pageArea').style.display = 'none'; $('quickArea').style.display = 'none'; $('navRow').style.display = 'none';
-    esaFiles = [];
-    const area = $('esaArea');
-    area.innerHTML = '';
-    const card = document.createElement('div'); card.className = 'card';
-    card.innerHTML = '<div class="block-text" style="margin-bottom:10px;">Fotografiere deine fertig bearbeiteten ESA-Seiten (eine oder mehrere) — dein Lehrer prüft sie einmal komplett durch, BEVOR du sie einsendest: fehlt etwas, sind Fehler drin, ist alles beantwortet.</div>';
-    const inputCam = document.createElement('input'); inputCam.type = 'file'; inputCam.accept = 'image/*'; inputCam.capture = 'environment'; inputCam.style.display = 'none';
-    const inputGal = document.createElement('input'); inputGal.type = 'file'; inputGal.accept = 'image/*'; inputGal.multiple = true; inputGal.style.display = 'none';
-    const row = document.createElement('div'); row.style.cssText = 'display:flex; gap:8px; margin-bottom:10px;';
-    const camBtn = document.createElement('button'); camBtn.className = 'icon-btn secondary'; camBtn.style.flex = '1'; camBtn.textContent = '📷 Foto aufnehmen';
-    const galBtn = document.createElement('button'); galBtn.className = 'icon-btn secondary'; galBtn.style.flex = '1'; galBtn.textContent = '🖼️ Aus Fotos wählen';
-    camBtn.onclick = () => inputCam.click(); galBtn.onclick = () => inputGal.click();
-    row.appendChild(camBtn); row.appendChild(galBtn);
-    const status = document.createElement('div'); status.className = 'badge-quiet'; status.textContent = 'Noch keine Seiten ausgewählt.';
-    function toB64(file) { return new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.readAsDataURL(file); }); }
-    inputCam.onchange = async (e) => { if (e.target.files[0]) { esaFiles.push(await toB64(e.target.files[0])); status.textContent = esaFiles.length + ' Seite(n) bereit.'; } e.target.value=''; };
-    inputGal.onchange = async (e) => { for (const f of e.target.files) esaFiles.push(await toB64(f)); status.textContent = esaFiles.length + ' Seite(n) bereit.'; e.target.value=''; };
-    const checkBtn = document.createElement('button'); checkBtn.className = 'icon-btn'; checkBtn.style.width = '100%'; checkBtn.textContent = 'Vor dem Versand prüfen';
-    const fb = document.createElement('div'); fb.className = 'feedback-box'; fb.style.display = 'none';
-    checkBtn.onclick = async () => {
-      if (!esaFiles.length) return;
-      checkBtn.disabled = true; fb.style.display = 'block'; fb.innerHTML = '<span class="thinking">Dein Lehrer liest alles durch…</span>';
-      const heftKontext = currentHeft.pages.flatMap(p => (p.blocks||[]).filter(b=>b.kind==='aufgabe').map(b=>b.text)).slice(0,40).join('\n---\n');
-      const prompt = 'Du bist ein erfahrener, wohlwollender Lehrer. Der Lernende (Fach ' + (currentHeft.subject||'') + ') hat seine fertige Einsendeaufgabe (ESA) fotografiert und möchte sie EINMAL VOR DEM VERSAND checken lassen (kein amtliches Grading, nur ein zweiter Blick). Bekannte Aufgabenstellungen aus dem Heft zum Abgleich:\n' + heftKontext + '\n\nPrüfe: 1) Wirkt irgendetwas unbeantwortet/unvollständig? 2) Fallen dir inhaltliche oder offensichtliche Fehler auf? 3) Gibt es Formalia (Name, Vertragsnummer o.ä.), die typischerweise fehlen? Antworte strukturiert, aber knapp (max. 6 Sätze), konstruktiv und ohne Druck, auf Deutsch.';
-      try { const res = await callClaude(prompt, { images: esaFiles, maxTokens: 1000 }); fb.textContent = res; speakSequential(splitIntoSegments(res)); }
-      catch (e) { fb.textContent = feedbackForError(e); }
-      finally { checkBtn.disabled = false; }
+  function debounce(fn, ms){
+    let t;
+    return function(){
+      clearTimeout(t);
+      const args = arguments;
+      t = setTimeout(() => fn.apply(null, args), ms);
     };
-    area.appendChild(card);
-    card.appendChild(row); card.appendChild(inputCam); card.appendChild(inputGal); card.appendChild(status); card.appendChild(document.createElement('br')); card.appendChild(checkBtn); card.appendChild(fb);
   }
 
-  // ---------------- Ask teacher ----------------
-  function openAskSheet() {
-    $('askSheet').style.display = 'flex';
-    $('answerArea').innerHTML = ''; $('fallbackInput').value = '';
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { $('micBtn').style.display = 'none'; $('askHint').textContent = 'Spracherkennung hier nicht verfügbar — tippe unten und nutze die Mikro-Taste deiner Tastatur.'; }
-    else { $('micBtn').style.display = 'block'; $('askHint').textContent = 'Antippen und reden – oder unten mit der Mikro-Taste deiner Tastatur diktieren.'; }
-  }
-  function closeAskSheet() { $('askSheet').style.display = 'none'; stopSpeaking(); if (recog) { try { recog.stop(); } catch(e){} } }
-  function tryVoiceInput() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
+  /* ================= Init ================= */
+  async function init(){
     try {
-      recog = new SR(); recog.lang = 'de-DE'; recog.interimResults = false; recog.maxAlternatives = 1;
-      $('micBtn').classList.add('listening'); $('micBtn').textContent = '🎙️ Ich höre zu…';
-      recog.onresult = (ev) => { const text = ev.results[0][0].transcript; $('fallbackInput').value = text; askQuestion(text); };
-      recog.onerror = (ev) => {
-        $('micBtn').classList.remove('listening'); $('micBtn').textContent = '🎙️ Antippen & sprechen';
-        let msg = 'Spracherkennung hat nicht geklappt — tippe unten aufs Textfeld.';
-        if (ev && ev.error === 'not-allowed') msg = 'Mikrofon-Zugriff blockiert. Tippe unten aufs Textfeld und nutze die Mikro-Taste deiner Tastatur.';
-        $('askHint').textContent = msg;
-      };
-      recog.onend = () => { $('micBtn').classList.remove('listening'); $('micBtn').textContent = '🎙️ Antippen & sprechen'; };
-      recog.start();
-    } catch (e) { $('askHint').textContent = 'Spracherkennung hier nicht verfügbar.'; }
-  }
-  async function askQuestion(question) {
-    if (!question) return;
-    const area = $('answerArea');
-    area.innerHTML = '<div class="feedback-box thinking">Dein Lehrer überlegt…</div>';
+      const records = await idbGetAll();
+      records.sort((a,b) => b.createdAt - a.createdAt);
+      files = records;
+    } catch(e){
+      console.error(e);
+      showToast('Deine Dateien konnten nicht geladen werden.');
+    }
+    renderHome();
+    history.replaceState({view: 'home'}, '', '');
+
     try {
-      const page = currentHeft.pages[currentPage - 1] || { blocks: [] };
-      const pageText = (page.blocks || []).map(b => b.text).join('\n\n');
-      const prompt = 'Du bist ein geduldiger, ruhiger KI-Lehrer, Fach ' + (currentHeft.subject || '') + '. Aktuelle Heftseite (' + currentPage + '/' + currentHeft.pages.length + '):\n\n' + pageText + '\n\nFrage des Lernenden (evtl. per Spracherkennung, kleine Fehler wohlwollend interpretieren):\n"' + question + '"\n\nAntworte kurz, klar, ruhig, ohne Druck, direkt angesprochen, auf Deutsch.';
-      const res = await callClaude(prompt);
-      area.innerHTML = '<div class="feedback-box">' + res.replace(/\n/g, '<br>') + '</div>';
-      speakSequential(splitIntoSegments(res));
-    } catch (e) { area.innerHTML = '<div class="feedback-box">' + feedbackForError(e) + '</div>'; }
+      if (window.claude && typeof window.claude.use === 'function'){
+        downloadsCap = await window.claude.use('downloads');
+      }
+    } catch(e){ downloadsCap = null; }
   }
 
-  // ---------------- Init & bindings ----------------
-  async function init() {
-    cachedVoices = await loadVoices().catch(() => []);
-    const s = getSettings();
-    $('apiKeyInput').value = s.apiKey;
-    $('modelMainInput').value = s.modelMain;
-    $('modelFastInput').value = s.modelFast;
-    $('rateInput').value = s.rate;
+  window.addEventListener('popstate', (e) => {
+    const s = e.state || {view: 'home'};
+    if (s.view === 'file' && s.id){
+      showFileView(s.id, {resetQuery: false, push: false});
+    } else {
+      showHomeView({push: false});
+    }
+  });
 
-    $('settingsBtn').onclick = () => $('settingsSheet').style.display = 'flex';
-    $('closeSettingsBtn').onclick = () => $('settingsSheet').style.display = 'none';
-    $('saveSettingsBtn').onclick = () => {
-      saveSettings({ apiKey: $('apiKeyInput').value.trim(), modelMain: $('modelMainInput').value.trim() || 'claude-sonnet-5', modelFast: $('modelFastInput').value.trim() || 'claude-haiku-4-5-20251001', rate: parseFloat($('rateInput').value) || 0.85 });
-      $('settingsSheet').style.display = 'none';
-    };
-    $('titleHome').onclick = renderLibrary;
-    $('backToLibraryBtn').onclick = () => { stopSpeaking(); renderLibrary(); };
-
-    $('uploadPdfBtn').onclick = () => {
-      if (!getSettings().apiKey) { alert('Bitte zuerst unter ⚙️ Einstellungen deinen API-Key eintragen.'); $('settingsSheet').style.display = 'flex'; return; }
-      $('pdfFileInput').click();
-    };
-    $('pdfFileInput').onchange = (e) => { if (e.target.files[0]) importPdf(e.target.files[0]); e.target.value = ''; };
-
-    $('prevBtn').onclick = () => goPage(-1);
-    $('nextBtn').onclick = () => goPage(1);
-    $('pageJumpBtn').onclick = () => jumpToPage($('pageJumpInput').value);
-    $('pageJumpInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') jumpToPage($('pageJumpInput').value); });
-    $('modeFull').onclick = () => { $('modeFull').classList.add('active'); $('modeQuick').classList.remove('active'); $('modeEsa').classList.remove('active'); $('quickArea').style.display='none'; $('esaArea').style.display='none'; $('pageArea').style.display='block'; $('navRow').style.display='flex'; };
-    $('modeQuick').onclick = () => { $('modeQuick').classList.add('active'); $('modeFull').classList.remove('active'); $('modeEsa').classList.remove('active'); runQuickCheck(); };
-    $('modeEsa').onclick = () => { $('modeEsa').classList.add('active'); $('modeFull').classList.remove('active'); $('modeQuick').classList.remove('active'); renderEsaCheck(); };
-    $('toolsBtn').onclick = openToolsSheet;
-    $('closeToolsBtn').onclick = closeToolsSheet;
-    $('toolOverviewBtn').onclick = () => runOverview(1, currentHeft.pages.length, 'des gesamten Hefts', 'overview');
-    $('toolChapterBtn').onclick = toolChapterPrompt;
-    $('toolEsaBtn').onclick = runEsaFocus;
-    $('toolMerkzettelBtn').onclick = runMerkzettel;
-
-    $('askFab').onclick = openAskSheet;
-    $('closeAskBtn').onclick = closeAskSheet;
-    $('sendBtn').onclick = () => askQuestion($('fallbackInput').value.trim());
-    $('fallbackInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') askQuestion($('fallbackInput').value.trim()); });
-    $('micBtn').onclick = tryVoiceInput;
-    $('stopSpeakBtn').onclick = stopSpeaking;
-
-    setInterval(() => {
-      const speaking = ('speechSynthesis' in window) && window.speechSynthesis.speaking;
-      $('stopSpeakBtn').style.display = speaking ? 'flex' : 'none';
-    }, 300);
-
-    renderLibrary();
+  /* ================= Home view ================= */
+  function showHomeView(opts){
+    opts = opts || {};
+    fileView.classList.remove('active');
+    homeView.classList.add('active');
+    if (opts.push !== false) history.pushState({view: 'home'}, '', '');
+    renderHome();
   }
+
+  function renderHome(){
+    const query = globalSearchInput.value.trim();
+    searchWrap.classList.toggle('has-value', !!query);
+
+    if (!query){
+      renderLibraryList();
+      return;
+    }
+
+    const results = [];
+    files.forEach(f => {
+      const matches = findMatchIndices(f.content, query);
+      if (matches.length) results.push({file: f, matches});
+    });
+    results.sort((a,b) => b.matches.length - a.matches.length);
+
+    if (!results.length){
+      homeBody.innerHTML = '<div class="empty-state"><p class="big">Keine Treffer</p><p>Für „' + escapeHtml(query) + '“ wurde nichts in deinen Dateien gefunden.</p></div>';
+      return;
+    }
+
+    let html = '';
+    results.forEach(r => {
+      const f = r.file;
+      const shown = r.matches.slice(0, 2);
+      html += '<div class="result-group">';
+      html += '<div class="result-group-header" data-open="' + f.id + '" data-qlen="' + query.length + '" data-jump="' + shown[0] + '" data-idx="0">';
+      html += '<span class="result-group-title">' + escapeHtml(f.title) + '</span>';
+      html += '<span class="result-group-count">' + r.matches.length + (r.matches.length === 1 ? ' Treffer' : ' Treffer') + '</span>';
+      html += '</div>';
+      shown.forEach((m, i) => {
+        html += '<div class="snippet" data-open="' + f.id + '" data-jump="' + i + '">' + snippetHtml(f.content, m, query.length) + '</div>';
+      });
+      if (r.matches.length > shown.length){
+        html += '<div class="snippet" data-open="' + f.id + '" data-jump="0" style="color:var(--gold);background:transparent;padding-left:10px;">+' + (r.matches.length - shown.length) + ' weitere Fundstelle' + (r.matches.length - shown.length === 1 ? '' : 'n') + '</div>';
+      }
+      html += '</div>';
+    });
+    homeBody.innerHTML = html;
+
+    homeBody.querySelectorAll('[data-open]').forEach(el => {
+      el.addEventListener('click', () => {
+        const fid = el.getAttribute('data-open');
+        const jump = parseInt(el.getAttribute('data-jump'), 10) || 0;
+        showFileView(fid, {query: query, jumpToIndex: jump});
+      });
+    });
+  }
+
+  function renderLibraryList(){
+    if (!files.length){
+      homeBody.innerHTML = '<div class="empty-state"><p class="big">Noch nichts gespeichert</p><p>Tippe unten auf „+“, um deine erste Wissensdatei hinzuzufügen.</p></div>';
+      return;
+    }
+    const totalWords = files.reduce((s,f) => s + (f.wordCount||0), 0);
+    let html = '<p class="section-label">' + files.length + (files.length===1 ? ' Datei' : ' Dateien') + ' mit insgesamt ' + totalWords.toLocaleString('de-DE') + ' Wörtern.</p>';
+    files.forEach(f => {
+      html += '<div class="file-row" data-open="' + f.id + '">';
+      html += '<div class="file-row-main">';
+      html += '<p class="file-row-title">' + escapeHtml(f.title) + '</p>';
+      html += '<p class="file-row-meta">' + formatDate(f.createdAt) + ' · ' + (f.wordCount||0).toLocaleString('de-DE') + ' Wörter</p>';
+      html += '</div></div>';
+    });
+    homeBody.innerHTML = html;
+    homeBody.querySelectorAll('[data-open]').forEach(el => {
+      el.addEventListener('click', () => showFileView(el.getAttribute('data-open')));
+    });
+  }
+
+  globalSearchInput.addEventListener('input', debounce(renderHome, 120));
+  clearGlobalSearch.addEventListener('click', () => {
+    globalSearchInput.value = '';
+    globalSearchInput.focus();
+    renderHome();
+  });
+  globalSearchInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') e.target.blur(); });
+
+  /* ================= File view ================= */
+  function showFileView(fileId, opts){
+    opts = opts || {};
+    const file = files.find(f => f.id === fileId);
+    if (!file){ showHomeView(); return; }
+
+    currentFileId = fileId;
+    withinQuery = opts.query || '';
+    currentMatchIdx = opts.jumpToIndex || 0;
+
+    homeView.classList.remove('active');
+    fileView.classList.add('active');
+    if (opts.push !== false) history.pushState({view: 'file', id: fileId}, '', '');
+
+    renderFileView({scrollToMatch: !!withinQuery});
+  }
+
+  function renderFileView(opts){
+    opts = opts || {};
+    const file = files.find(f => f.id === currentFileId);
+    if (!file) { showHomeView(); return; }
+
+    fvTitle.textContent = file.title;
+    fvMeta.textContent = formatDate(file.createdAt) + ' · ' + (file.wordCount||0).toLocaleString('de-DE') + ' Wörter · ' + (file.charCount||0).toLocaleString('de-DE') + ' Zeichen';
+    withinSearchInput.value = withinQuery;
+    withinSearchWrap.classList.toggle('has-value', !!withinQuery);
+
+    fvContent.innerHTML = highlightedContentHtml(file.content, withinQuery);
+    currentMatches = withinQuery ? findMatchIndices(file.content, withinQuery) : [];
+
+    if (currentMatches.length){
+      matchNav.classList.add('active');
+      if (currentMatchIdx >= currentMatches.length) currentMatchIdx = 0;
+      updateMatchCount();
+      setActiveMatch(currentMatchIdx, {scroll: opts.scrollToMatch});
+    } else {
+      matchNav.classList.remove('active');
+    }
+  }
+
+  function updateMatchCount(){
+    matchCount.textContent = (currentMatchIdx + 1) + ' von ' + currentMatches.length;
+  }
+  function setActiveMatch(idx, opts){
+    opts = opts || {};
+    fvContent.querySelectorAll('mark.match.active').forEach(el => el.classList.remove('active'));
+    const el = document.getElementById('match-' + idx);
+    if (el){
+      el.classList.add('active');
+      if (opts.scroll !== false){
+        el.scrollIntoView({block: 'center', behavior: 'smooth'});
+      }
+    }
+  }
+
+  document.getElementById('backBtn').addEventListener('click', () => history.back());
+  document.getElementById('prevMatch').addEventListener('click', () => {
+    if (!currentMatches.length) return;
+    currentMatchIdx = (currentMatchIdx - 1 + currentMatches.length) % currentMatches.length;
+    updateMatchCount();
+    setActiveMatch(currentMatchIdx);
+  });
+  document.getElementById('nextMatch').addEventListener('click', () => {
+    if (!currentMatches.length) return;
+    currentMatchIdx = (currentMatchIdx + 1) % currentMatches.length;
+    updateMatchCount();
+    setActiveMatch(currentMatchIdx);
+  });
+
+  withinSearchInput.addEventListener('input', debounce(() => {
+    withinQuery = withinSearchInput.value.trim();
+    currentMatchIdx = 0;
+    renderFileView({scrollToMatch: false});
+  }, 150));
+  clearWithinSearch.addEventListener('click', () => {
+    withinSearchInput.value = '';
+    withinQuery = '';
+    currentMatchIdx = 0;
+    renderFileView({scrollToMatch: false});
+    withinSearchInput.focus();
+  });
+  withinSearchInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') e.target.blur(); });
+
+  /* ---- Export ---- */
+  document.getElementById('exportBtn').addEventListener('click', async () => {
+    const file = files.find(f => f.id === currentFileId);
+    if (!file) return;
+    if (!downloadsCap){
+      showToast('Export ist in dieser Ansicht nicht verfügbar.');
+      return;
+    }
+    try {
+      const safeName = file.title.replace(/[\/\\:*?"<>|]/g, '').trim() || 'wissensdatei';
+      await downloadsCap.save({filename: safeName + '.txt', data: file.content});
+      showToast('Datei exportiert.');
+    } catch(e){
+      if (e && e.code === 'declined') return;
+      showToast('Export fehlgeschlagen.');
+    }
+  });
+
+  /* ---- Delete ---- */
+  let pendingDeleteId = null;
+  document.getElementById('deleteBtn').addEventListener('click', () => {
+    const file = files.find(f => f.id === currentFileId);
+    if (!file) return;
+    pendingDeleteId = file.id;
+    confirmText.textContent = '„' + file.title + '“ endgültig löschen?';
+    confirmOverlay.classList.add('active');
+    confirmBox.classList.add('active');
+  });
+  document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
+  confirmOverlay.addEventListener('click', closeConfirm);
+  function closeConfirm(){
+    confirmOverlay.classList.remove('active');
+    confirmBox.classList.remove('active');
+    pendingDeleteId = null;
+  }
+  document.getElementById('confirmOk').addEventListener('click', async () => {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    closeConfirm();
+    try {
+      await idbDelete(id);
+      files = files.filter(f => f.id !== id);
+      showToast('Datei gelöscht.');
+      history.back();
+    } catch(e){
+      showToast('Löschen fehlgeschlagen.');
+    }
+  });
+
+  /* ================= Add file sheet ================= */
+  const addFab = document.getElementById('addFab');
+  const closeSheetBtn = document.getElementById('closeSheet');
+
+  addFab.addEventListener('click', openAddSheet);
+  closeSheetBtn.addEventListener('click', closeAddSheet);
+  addOverlay.addEventListener('click', (e) => { if (e.target === addOverlay) closeAddSheet(); });
+
+  function openAddSheet(){
+    fileTitleInput.value = '';
+    pasteInput.value = '';
+    fileInput.value = '';
+    fileInfo.textContent = '';
+    pendingUploadText = '';
+    activeTab = 'upload';
+    setActiveTab('upload');
+    saveProgress.classList.add('hidden');
+    updateSaveEnabled();
+    addOverlay.classList.add('active');
+  }
+  function closeAddSheet(){
+    addOverlay.classList.remove('active');
+  }
+
+  function setActiveTab(tab){
+    activeTab = tab;
+    document.getElementById('tabUploadBtn').classList.toggle('active', tab === 'upload');
+    document.getElementById('tabPasteBtn').classList.toggle('active', tab === 'paste');
+    document.getElementById('panelUpload').classList.toggle('active', tab === 'upload');
+    document.getElementById('panelPaste').classList.toggle('active', tab === 'paste');
+    updateSaveEnabled();
+  }
+  document.getElementById('tabUploadBtn').addEventListener('click', () => setActiveTab('upload'));
+  document.getElementById('tabPasteBtn').addEventListener('click', () => setActiveTab('paste'));
+
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files[0];
+    if (!f){ pendingUploadText = ''; fileInfo.textContent = ''; updateSaveEnabled(); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingUploadText = String(reader.result || '');
+      fileInfo.textContent = f.name + ' · ' + Math.round(f.size/1024).toLocaleString('de-DE') + ' KB gelesen';
+      if (!fileTitleInput.value.trim()){
+        fileTitleInput.value = f.name.replace(/\.[^.]+$/, '');
+      }
+      updateSaveEnabled();
+    };
+    reader.onerror = () => {
+      showToast('Datei konnte nicht gelesen werden.');
+    };
+    reader.readAsText(f, 'UTF-8');
+  });
+
+  function currentText(){
+    return activeTab === 'upload' ? pendingUploadText : pasteInput.value;
+  }
+  function updateSaveEnabled(){
+    const hasTitle = fileTitleInput.value.trim().length > 0;
+    const hasText = currentText().trim().length > 0;
+    saveFileBtn.disabled = !(hasTitle && hasText);
+  }
+  fileTitleInput.addEventListener('input', updateSaveEnabled);
+  pasteInput.addEventListener('input', updateSaveEnabled);
+
+  saveFileBtn.addEventListener('click', async () => {
+    const title = fileTitleInput.value.trim();
+    const text = currentText();
+    if (!title || !text.trim()) return;
+
+    saveFileBtn.disabled = true;
+    saveProgress.classList.remove('hidden');
+    saveProgress.textContent = 'Wird gespeichert …';
+
+    const record = {
+      id: 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8),
+      title: title,
+      content: text,
+      createdAt: Date.now(),
+      charCount: text.length,
+      wordCount: wordCount(text)
+    };
+
+    try {
+      await idbPut(record);
+      files.unshift(record);
+      closeAddSheet();
+      showToast('„' + title + '“ gespeichert.');
+      renderHome();
+    } catch(e){
+      console.error(e);
+      saveProgress.textContent = 'Fehler beim Speichern. Bitte erneut versuchen.';
+      saveFileBtn.disabled = false;
+    }
+  });
+
   init();
 })();
 </script>
